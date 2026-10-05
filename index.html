@@ -3593,7 +3593,7 @@ function sheetHtml() {
  <div class="fg"><label for="f-notes">Your notes</label><textarea id="f-notes" data-in="sheet" placeholder="How it wears, when you reach for it">${esc(d.notes)}</textarea></div>
  <div class="fg"><span class="lb">Photo</span><div class="acts"><button type="button" class="btn ghost sm" data-act="photoPick">${PHOTOS[d.id] ? 'Change photo' : 'Add photo'}</button>${PHOTOS[d.id] ? '<button type="button" class="btn ghost sm" data-act="photoDel">Remove photo</button>' : ''}</div><input type="file" id="photoFile" accept="image/*"></div>
  ${sheetNew && !known ? `<div class="set-row" style="border:0;padding:4px 0"><label for="f-savelib" style="margin:0">Also save to my library</label><input type="checkbox" id="f-savelib" checked style="width:20px;height:20px"></div>` : ''}
- <div class="foot">${sheetNew ? '' : '<button class="btn danger sp" data-act="sheetDel">Delete</button>'}${!sheetNew && !wish ? '<button class="btn ghost" data-act="sheetWear">Log a wear</button>' : ''}${!sheetNew && wish && window.__luxTest ? '<button class="btn ghost" data-act="wishTest">Test</button>' : ''}${!sheetNew && (wish || d.type === 'Decant') ? '<button class="btn ghost" data-act="calcSheet">Decant or bottle?</button>' : ''}${!sheetNew && wish ? '<button class="btn ghost" data-act="bought">I bought it</button>' : ''}<button class="btn" data-act="sheetSave">${sheetNew ? 'Add to cabinet' : 'Save changes'}</button></div>`;
+ <div class="foot">${sheetNew ? '' : '<button class="btn danger sp" data-act="sheetDel">Delete</button>'}${!sheetNew && !wish ? '<button class="btn ghost" data-act="sheetWear">Log a wear</button>' : ''}${!sheetNew && wish && window.__luxTest ? '<button class="btn ghost" data-act="wishTest">Test</button>' : ''}${!sheetNew && (wish || d.type === 'Decant') ? '<button class="btn ghost" data-act="calcSheet">Decant or bottle?</button>' : ''}${!sheetNew && wish ? '<button class="btn ghost" data-act="boughtDec">I bought a decant</button><button class="btn ghost" data-act="bought">I bought it</button>' : ''}<button class="btn" data-act="sheetSave">${sheetNew ? 'Add to cabinet' : 'Save changes'}</button></div>`;
 }
 function paintSheet() {
   const p = $('#modal .panel');
@@ -5429,21 +5429,29 @@ async function savePhotoBatch() {
 let CALC = null;
 function calcFor(o, back) {
   const k = pkey(o.brand, o.name),
-    p = (o.pid && byId(o.pid)) || S.perfumes.find(q => pkey(q.brand, q.name) === k),
+    pp = o.pid && byId(o.pid),
+    M = S.perfumes.filter(q => pkey(q.brand, q.name) === k),
     e = LIB.find(x => x.k === k);
   const W = allWears().filter(w => {
       const q = wP(w);
       return pkey(q.brand, q.name) === k;
     }),
     recent = W.filter(w => w.t > Date.now() - 90 * DAY).length;
-  const dec = p && p.type === 'Decant',
-    bottle = p && !dec ? p : null;
+  /* a decant and the full bottle of the same fragrance can both be in the cabinet (or on the wishlist) */
+  const dec =
+      pp && pp.type === 'Decant'
+        ? pp
+        : M.filter(q => q.type === 'Decant').sort((a, b) => (+b.bought || b.created || 0) - (+a.bought || a.created || 0))[0],
+    bottle =
+      pp && pp.type !== 'Decant'
+        ? pp
+        : M.find(q => q.type !== 'Decant' && q.shelf === 'wish') || M.find(q => q.type !== 'Decant') || null;
   return {
     name: o.name,
     brand: o.brand,
     back,
-    dMl: dec ? p.maxMl : '',
-    dPrice: dec && +p.price > 0 ? p.price : '',
+    dMl: dec ? dec.maxMl : '',
+    dPrice: dec && +dec.price > 0 ? dec.price : '',
     bMl: bottle ? bottle.maxMl : (e && e.s) || 100,
     bPrice:
       bottle && bottle.shelf === 'wish' && +bottle.seen > 0
@@ -5512,6 +5520,16 @@ function wishLine(p) {
   if (s && t && s <= t) return `<span class="deal">${esc(money(s))} · good price</span>`;
   const l = [s ? esc(money(s)) : '', t ? 'target ' + esc(money(t)) : ''].filter(Boolean).join(' · ');
   return l || (p.prio ? '<span class="deal">' + '★'.repeat(p.prio) + '</span>' : '');
+}
+
+/* A decant bought to try a wishlist bottle: its own cabinet entry; the bottle stays wished for. */
+let DEC = null;
+function decHtml() {
+  const w = byId(DEC.id);
+  return `<button class="x" data-act="close" aria-label="Close">\u00d7</button><h2>I bought a decant</h2><p class="muted" style="margin:6px 0 16px">${esc(w.name)} \u00b7 ${esc(w.brand)}. It goes to ${esc(shelfName(S.shelves[0].id))} as its own decant. The ${mlf(w.maxMl)} ml bottle stays on the wishlist with its prices.</p>
+ <span class="lb">Size</span><div class="chips" style="margin-bottom:10px">${[2, 5, 10].map(v => `<button type="button" class="chip${DEC.ml === v ? ' on' : ''}" data-act="decMl" data-v="${v}">${v} ml</button>`).join('')}</div>
+ <div class="g2"><div class="fg"><label for="dc-ml">Size (ml)</label><input id="dc-ml" type="number" min="0.5" step="0.5" inputmode="decimal" value="${DEC.ml}"></div><div class="fg"><label for="dc-p">Price paid (${esc(cur())})</label><input id="dc-p" type="number" min="0" step="0.5" inputmode="decimal"></div></div>
+ <div class="foot"><button class="btn ghost" data-act="close">Cancel</button><button class="btn" data-act="decSave">Add decant</button></div>`;
 }
 
 /* ================= daily reminders (Android app) ================= */
@@ -6276,6 +6294,53 @@ const ACT = {
       save();
       render();
     });
+  },
+  boughtDec: () => {
+    if (!commitSheet()) return;
+    DEC = { id: D.id, ml: 2 };
+    MODAL = 'decant';
+    openModal(decHtml());
+  },
+  decMl: a => {
+    DEC.ml = +a.dataset.v;
+    $('#dc-ml').value = DEC.ml;
+    $$('#modal [data-act="decMl"]').forEach(b => b.classList.toggle('on', b === a));
+  },
+  decSave: () => {
+    const w = byId(DEC.id),
+      ml = Math.round(clamp(+$('#dc-ml').value || 0, 0, 200) * 10) / 10,
+      pr = $('#dc-p').value;
+    if (!w) return closeModal();
+    if (!(ml > 0)) {
+      toast('Add the size in ml');
+      return;
+    }
+    const lb0 = lastBuy(),
+      now = Date.now(),
+      d = JSON.parse(JSON.stringify(w));
+    ['seen', 'target', 'where', 'prio', 'cal', 'spm'].forEach(k => delete d[k]);
+    Object.assign(d, {
+      id: uid(),
+      shelf: S.shelves[0].id,
+      type: 'Decant',
+      maxMl: ml,
+      ml,
+      price: +pr > 0 ? +pr : '',
+      created: now,
+      bought: now,
+      sprays: 0,
+      cal: { ml, sprays: 0 }
+    });
+    S.perfumes.push(d);
+    if (PHOTOS[w.id]) {
+      PHOTOS[d.id] = PHOTOS[w.id];
+      idb.set('photo:' + d.id, PHOTOS[w.id]);
+    }
+    nbCheck(lb0);
+    save();
+    closeModal();
+    render();
+    toast(`${mlf(ml)} ml decant added to ${shelfName(d.shelf)}. The bottle stays on the wishlist.`);
   },
   bought: () => {
     readSheet();
