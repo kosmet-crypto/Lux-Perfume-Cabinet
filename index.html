@@ -480,6 +480,18 @@ h3 {
   margin-top: 3px;
   white-space: nowrap;
 }
+.lv.wl {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.4;
+  max-width: 100%;
+}
+.lv.wl > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 .ghost-el {
   position: fixed;
   left: 0;
@@ -2822,7 +2834,7 @@ function item(p) {
   const wish = notOwn(p.shelf),
     lv = p.maxMl ? p.ml / p.maxMl : 0,
     low = lowOf(p);
-  return `<div class="it" data-id="${p.id}" role="button" tabindex="0" aria-label="${esc(p.brand + ' ' + p.name)}">${bt(p, wish ? 1 : lv)}<div class="nm" title="${esc(p.name)}">${esc(p.name)}</div><div class="br">${esc(p.brand)}</div>${wish ? `<div class="lv">${wishLine(p)}</div>` : `<div class="lv${low ? ' low' : ''}">${mlf(p.ml)} / ${mlf(p.maxMl)} ml</div>`}</div>`;
+  return `<div class="it" data-id="${p.id}" role="button" tabindex="0" aria-label="${esc(p.brand + ' ' + p.name)}">${bt(p, wish ? 1 : lv)}<div class="nm" title="${esc(p.name)}">${esc(p.name)}</div><div class="br">${esc(p.brand)}</div>${wish ? `<div class="lv wl">${wishLine(p)}</div>` : `<div class="lv${low ? ' low' : ''}">${mlf(p.ml)} / ${mlf(p.maxMl)} ml</div>`}</div>`;
 }
 function rack(id, name, wish) {
   /* the wishlist is ordered by how much you want each bottle, five stars first */
@@ -5527,12 +5539,18 @@ function calcOut(o) {
 }
 
 /* ================= wishlist details ================= */
+/* Stars, price seen and target each on their own line, so a narrow tile never overflows. */
 function wishLine(p) {
   const s = +p.seen > 0 ? +p.seen : 0,
-    t = +p.target > 0 ? +p.target : 0,
-    st = p.prio ? '<span class="deal">' + '\u2605'.repeat(p.prio) + '</span>' : '';
-  if (s && t && s <= t) return [st, `<span class="deal">${esc(money(s))} \u00b7 good price</span>`].filter(Boolean).join(' ');
-  return [st, s ? esc(money(s)) : '', t ? 'target ' + esc(money(t)) : ''].filter(Boolean).join(' \u00b7 ');
+    t = +p.target > 0 ? +p.target : 0;
+  return [
+    p.prio ? '<span class="deal">' + '\u2605'.repeat(p.prio) + '</span>' : '',
+    s && t && s <= t ? `<span class="deal">${esc(money(s))}</span>` : s ? esc(money(s)) : '',
+    s && t && s <= t ? '<span class="deal">good price</span>' : t ? 'target ' + esc(money(t)) : ''
+  ]
+    .filter(Boolean)
+    .map(x => `<span>${x}</span>`)
+    .join('');
 }
 
 /* A decant bought to try a wishlist bottle: its own cabinet entry; the bottle stays wished for. */
