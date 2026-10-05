@@ -550,7 +550,7 @@
   <div class="fg"><label class="tt-chk" style="margin:0"><input type="checkbox" id="ts-early" data-tc="tearly"${ST.earlier ? ' checked' : ''}> I sprayed earlier</label>${ST.earlier ? `<input type="datetime-local" id="ts-t" value="${toLocalInput(ST.t)}" max="${toLocalInput(Date.now())}" style="margin-top:8px">` : ''}</div>
   <div class="foot"><button class="btn ghost" data-act="close">Cancel</button><button class="btn" data-ta="tgo">Continue ${ST.earlier ? 'that' : 'today\u2019s'} test</button></div>`;
     return `<button class="x" data-act="close" aria-label="Close">\u00d7</button><h2>Start a test</h2>
-  <div class="fg" style="margin-top:16px"><label>Fragrance</label>${ST.name ? `<div class="tt-pick"><span><b>${esc(ST.name)}</b> <small>${esc(ST.brand)}${cab ? (cab.shelf === 'buy' ? ' \u00b7 on I will buy it' : notOwn(cab.shelf) ? ' \u00b7 on your wishlist' : ' \u00b7 in cabinet') : ''}</small></span><button data-ta="tclear">Change</button></div>` : `<input id="ts-q" data-ti="tsq" placeholder="Search your cabinet or library" autocomplete="off" value="${esc(ST.q)}"><div class="sugg" id="ts-sugg"></div>`}</div>
+  <div class="fg" style="margin-top:16px"><label>Fragrance</label>${ST.name ? `<div class="tt-pick"><span><b>${esc(ST.name)}</b> <small>${esc(ST.brand)}${cab ? (notOwn(cab.shelf) ? ' \u00b7 on your wishlist' : ' \u00b7 in cabinet') : ''}</small></span><button data-ta="tclear">Change</button></div>` : `<input id="ts-q" data-ti="tsq" placeholder="Search your cabinet or library" autocomplete="off" value="${esc(ST.q)}"><div class="sugg" id="ts-sugg"></div>`}</div>
   <div class="fg"><span class="lb">Where on the body</span><div class="chips">${SPOTS.map(([k, l]) => `<button type="button" class="chip${ST.spots.includes(k) ? ' on' : ''}" data-ta="tspot" data-v="${k}">${l}</button>`).join('')}</div></div>
   <span class="lb" style="text-align:center">Sprays</span><div class="stepper" style="margin:8px 0 16px"><button data-ta="tstep" data-d="-1" aria-label="Fewer">\u2212</button><b id="ts-n" style="font-size:44px">${ST.n}</b><button data-ta="tstep" data-d="1" aria-label="More">+</button></div>
   <div class="g2"><div class="fg"><label for="ts-venue">Where tested</label><input id="ts-venue" list="tt-venues" placeholder="Shop or home" value="${esc(ST.venue)}" autocomplete="off"><datalist id="tt-venues">${tt()
@@ -1517,7 +1517,7 @@
         cab
           .map(
             p =>
-              `<button type="button" data-ta="tpickc" data-id="${p.id}">${esc(p.name)} <small>${esc(p.brand)} \u00b7 ${p.shelf === 'buy' ? 'on I will buy it' : notOwn(p.shelf) ? 'on your wishlist' : 'in cabinet'}</small></button>`
+              `<button type="button" data-ta="tpickc" data-id="${p.id}">${esc(p.name)} <small>${esc(p.brand)} \u00b7 ${notOwn(p.shelf) ? 'on your wishlist' : 'in cabinet'}</small></button>`
           )
           .join('') +
         lib

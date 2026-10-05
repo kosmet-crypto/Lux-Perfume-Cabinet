@@ -2119,6 +2119,11 @@ function migrate(o) {
   }
   s.perfumes.forEach(p => {
     if (!p.cal) p.cal = { ml: +p.ml || 0, sprays: p.sprays || 0 };
+    /* the short-lived "I will buy it" shelf became five stars on the wishlist */
+    if (p.shelf === 'buy') {
+      p.shelf = 'wish';
+      p.prio = 5;
+    }
   });
   ['shelves', 'perfumes', 'wears', 'mine'].forEach(k => {
     if (!Array.isArray(s[k])) s[k] = d[k];
@@ -2167,10 +2172,9 @@ function snapNow(why) {
 }
 const owned = () => S.perfumes.filter(p => !notOwn(p.shelf));
 const byId = id => S.perfumes.find(p => p.id === id);
-/* Wishlist and "I will buy it" hold bottles that are not yours yet: they never count in the collection. */
-const notOwn = id => id === 'wish' || id === 'buy';
-const shelfName = id =>
-  id === 'wish' ? 'Wishlist' : id === 'buy' ? 'I will buy it' : (S.shelves.find(s => s.id === id) || {}).name || '—';
+/* The wishlist holds bottles that are not yours yet: they never count in the collection. */
+const notOwn = id => id === 'wish';
+const shelfName = id => (id === 'wish' ? 'Wishlist' : (S.shelves.find(s => s.id === id) || {}).name || '—');
 
 /* ================= IndexedDB (photos + imported library) ================= */
 const idb = {
@@ -2821,10 +2825,11 @@ function item(p) {
   return `<div class="it" data-id="${p.id}" role="button" tabindex="0" aria-label="${esc(p.brand + ' ' + p.name)}">${bt(p, wish ? 1 : lv)}<div class="nm" title="${esc(p.name)}">${esc(p.name)}</div><div class="br">${esc(p.brand)}</div>${wish ? `<div class="lv">${wishLine(p)}</div>` : `<div class="lv${low ? ' low' : ''}">${mlf(p.ml)} / ${mlf(p.maxMl)} ml</div>`}</div>`;
 }
 function rack(id, name, wish) {
-  const items = S.perfumes.filter(p => p.shelf === id),
+  /* the wishlist is ordered by how much you want each bottle, five stars first */
+  const items = S.perfumes.filter(p => p.shelf === id).sort((a, b) => (wish ? (+b.prio || 0) - (+a.prio || 0) : 0)),
     ml = items.reduce((a, p) => a + p.ml, 0),
     seen = items.reduce((a, p) => a + (+p.seen > 0 ? +p.seen : 0), 0);
-  return `<section class="shelf${wish ? ' wish' : ''}"><div class="shelf-h"><h2>${esc(name)}</h2><span>${items.length}${wish ? (seen ? ' \u00b7 about ' + esc(money(seen)) : '') : ' \u00b7 ' + fmt(ml) + ' ml'}</span></div><div class="rack" data-shelf="${id}">${items.map(item).join('') || `<p class="empty">${id === 'buy' ? 'Bottles you plan to buy. They are not counted as yours until you tap I bought it. Drag a bottle here.' : wish ? 'Fragrances you want to try. Drag a bottle here, or tap the heart in the Library.' : 'Nothing on this shelf yet. Drag a bottle here or add a fragrance.'}</p>`}</div></section>`;
+  return `<section class="shelf${wish ? ' wish' : ''}"><div class="shelf-h"><h2>${esc(name)}</h2><span>${items.length}${wish ? (seen ? ' \u00b7 about ' + esc(money(seen)) : '') : ' \u00b7 ' + fmt(ml) + ' ml'}</span></div><div class="rack" data-shelf="${id}">${items.map(item).join('') || `<p class="empty">${wish ? 'Fragrances you want to try. Drag a bottle here, or tap the heart in the Library.' : 'Nothing on this shelf yet. Drag a bottle here or add a fragrance.'}</p>`}</div></section>`;
 }
 function banners() {
   let h = '';
@@ -2850,7 +2855,7 @@ function vShelf() {
     lowNote() +
     recapCard() +
     todayCard() +
-    `<div id="racks">${S.shelves.map(sh => rack(sh.id, sh.name, false)).join('')}${rack('buy', 'I will buy it', true)}${rack('wish', 'Wishlist', true)}</div>`
+    `<div id="racks">${S.shelves.map(sh => rack(sh.id, sh.name, false)).join('')}${rack('wish', 'Wishlist', true)}</div>`
   );
 }
 
@@ -3559,9 +3564,7 @@ function sheetHtml() {
     wish = notOwn(d.shelf);
   const shOpts = S.shelves
     .concat([
-      { id: 'buy', name: 'I will buy it' },
-      { id: 'wish', name: 'Wishlist' }
-    ])
+{ id: 'wish', name: 'Wishlist' }])
     .map(s => `<option value="${s.id}"${d.shelf === s.id ? ' selected' : ''}>${esc(s.name)}</option>`)
     .join('');
   const concs = !d.conc || CONCS.includes(d.conc) ? CONCS : CONCS.concat([d.conc]);
@@ -4769,9 +4772,10 @@ function buyHtml() {
     run = nbDays(),
     goal = +s.nbGoal > 0 ? +s.nbGoal : 30,
     best = Math.max((s.nb && s.nb.best) || 0, run);
-  const sumOf = id => S.perfumes.filter(p => p.shelf === id).reduce((a, p) => a + (+p.seen > 0 ? +p.seen : 0), 0),
-    planSum = sumOf('buy'),
-    wishSum = sumOf('wish');
+  const W = S.perfumes.filter(p => p.shelf === 'wish'),
+    sumOf = L => L.reduce((a, p) => a + (+p.seen > 0 ? +p.seen : 0), 0),
+    planSum = sumOf(W.filter(p => +p.prio === 5)),
+    wishSum = sumOf(W);
   return `<div class="card" id="buyCard"><div class="ch"><h3>Purchases</h3><button class="btn ghost sm" data-act="budget">${bud ? 'Budget' : 'Set a budget'}</button></div>
  <div class="vbig"><b>${money(spent)}</b><span>${bud ? (spent > bud ? `spent this month \u00b7 <em class="over">${money(spent - bud)} over</em> the ${money(bud)} budget` : `spent this month \u00b7 ${money(bud - spent)} left of ${money(bud)}`) : 'spent this month'}</span></div>
  ${bud ? `<div class="vbar${spent > bud ? ' over' : ''}" role="img" aria-label="${pct}% of the budget spent"><b style="width:${pct}%"></b></div>` : ''}
@@ -4779,7 +4783,7 @@ function buyHtml() {
  <div class="bars sm">${M.map((x, i) => `<div class="bar${x.v ? '' : ' z'}${bud && x.v > bud ? ' over' : ''}" title="${esc(x.l)}: ${esc(money(x.v))} \u00b7 ${x.n} ${x.n === 1 ? 'bottle' : 'bottles'}" style="height:${x.v ? Math.max(6, (x.v / mx) * 100) : 2}%;animation-delay:${i * 30}ms"></div>`).join('')}</div><div class="axis">${M.map(x => `<span>${x.l}</span>`).join('')}</div>
  <div class="nb"><div class="nb-t"><b>${nb ? `${run} ${run === 1 ? 'day' : 'days'} without buying` : 'No-buy challenge'}</b><small>${nb ? `Goal ${goal} days${best > run ? ` \u00b7 best ${best}` : ''}${run >= goal ? ' \u00b7 goal reached' : ''}` : `Count the days without a new bottle. Goal ${goal} days.`}</small></div><button class="btn ${nb ? 'ghost ' : ''}sm" data-act="${nb ? 'nbStop' : 'nbStart'}">${nb ? 'Stop' : 'Start'}</button></div>
  ${nb ? `<div class="vbar" role="img" aria-label="${run} of ${goal} days"><b style="width:${Math.min(100, Math.round((run / goal) * 100))}%"></b></div>` : ''}
- ${planSum ? `<p class="muted" style="margin-top:12px;font-size:13px">I will buy it: ${money(planSum)} planned at the prices seen${bud ? (planSum > Math.max(0, bud - spent) ? ' \u00b7 more than the budget left this month' : ' \u00b7 fits in the budget left this month') : ''}.</p>` : ''}
+ ${planSum ? `<p class="muted" style="margin-top:12px;font-size:13px">Five stars on the wishlist: ${money(planSum)} at the prices seen${bud ? (planSum > Math.max(0, bud - spent) ? ' \u00b7 more than the budget left this month' : ' \u00b7 fits in the budget left this month') : ''}.</p>` : ''}
  ${wishSum ? `<p class="muted" style="margin-top:${planSum ? 4 : 12}px;font-size:13px">The wishlist would cost ${money(wishSum)} at the prices seen.</p>` : ''}</div>`;
 }
 function openBudget() {
@@ -5525,10 +5529,10 @@ function calcOut(o) {
 /* ================= wishlist details ================= */
 function wishLine(p) {
   const s = +p.seen > 0 ? +p.seen : 0,
-    t = +p.target > 0 ? +p.target : 0;
-  if (s && t && s <= t) return `<span class="deal">${esc(money(s))} · good price</span>`;
-  const l = [s ? esc(money(s)) : '', t ? 'target ' + esc(money(t)) : ''].filter(Boolean).join(' · ');
-  return l || (p.prio ? '<span class="deal">' + '★'.repeat(p.prio) + '</span>' : '');
+    t = +p.target > 0 ? +p.target : 0,
+    st = p.prio ? '<span class="deal">' + '\u2605'.repeat(p.prio) + '</span>' : '';
+  if (s && t && s <= t) return [st, `<span class="deal">${esc(money(s))} \u00b7 good price</span>`].filter(Boolean).join(' ');
+  return [st, s ? esc(money(s)) : '', t ? 'target ' + esc(money(t)) : ''].filter(Boolean).join(' \u00b7 ');
 }
 
 /* A decant bought to try a wishlist bottle: its own cabinet entry; the bottle stays wished for. */
@@ -6103,7 +6107,7 @@ function testsText() {
     if (g.hours != null) b.push('lasted about ' + f(g.hours) + ' h');
     if (g.buy) b.push('would buy: ' + g.buy);
     if (+g.price > 0) b.push('price ' + money(g.price));
-    if (p) b.push(p.shelf === 'buy' ? 'to buy' : notOwn(p.shelf) ? 'on wishlist' : 'owned');
+    if (p) b.push(notOwn(p.shelf) ? 'on wishlist' : 'owned');
     const se = testSeason(g);
     if (se) b.push('season: ' + se.toLowerCase());
     const ny = pyrAll(pyrOf(g.brand, g.name));
