@@ -2165,9 +2165,12 @@ function snapNow(why) {
     localStorage.setItem('lux.snaps', JSON.stringify(a.slice(0, 6)));
   } catch (e) {}
 }
-const owned = () => S.perfumes.filter(p => p.shelf !== 'wish');
+const owned = () => S.perfumes.filter(p => !notOwn(p.shelf));
 const byId = id => S.perfumes.find(p => p.id === id);
-const shelfName = id => (id === 'wish' ? 'Wishlist' : (S.shelves.find(s => s.id === id) || {}).name || '—');
+/* Wishlist and "I will buy it" hold bottles that are not yours yet: they never count in the collection. */
+const notOwn = id => id === 'wish' || id === 'buy';
+const shelfName = id =>
+  id === 'wish' ? 'Wishlist' : id === 'buy' ? 'I will buy it' : (S.shelves.find(s => s.id === id) || {}).name || '—';
 
 /* ================= IndexedDB (photos + imported library) ================= */
 const idb = {
@@ -2785,7 +2788,7 @@ function seed() {
       demo: true
     })
   );
-  const own = s.perfumes.filter(p => p.shelf !== 'wish'),
+  const own = s.perfumes.filter(p => !notOwn(p.shelf)),
     W = [3, 3, 2, 3, 2, 1, 2, 2, 1, 2];
   for (let d = 0; d < 75; d++) {
     if (rnd() < 0.78) {
@@ -2812,7 +2815,7 @@ const cur = () => S.settings.cur || '';
 
 /* ================= collection ================= */
 function item(p) {
-  const wish = p.shelf === 'wish',
+  const wish = notOwn(p.shelf),
     lv = p.maxMl ? p.ml / p.maxMl : 0,
     low = lowOf(p);
   return `<div class="it" data-id="${p.id}" role="button" tabindex="0" aria-label="${esc(p.brand + ' ' + p.name)}">${bt(p, wish ? 1 : lv)}<div class="nm" title="${esc(p.name)}">${esc(p.name)}</div><div class="br">${esc(p.brand)}</div>${wish ? `<div class="lv">${wishLine(p)}</div>` : `<div class="lv${low ? ' low' : ''}">${mlf(p.ml)} / ${mlf(p.maxMl)} ml</div>`}</div>`;
@@ -2821,7 +2824,7 @@ function rack(id, name, wish) {
   const items = S.perfumes.filter(p => p.shelf === id),
     ml = items.reduce((a, p) => a + p.ml, 0),
     seen = items.reduce((a, p) => a + (+p.seen > 0 ? +p.seen : 0), 0);
-  return `<section class="shelf${wish ? ' wish' : ''}"><div class="shelf-h"><h2>${esc(name)}</h2><span>${items.length}${wish ? (seen ? ' \u00b7 about ' + esc(money(seen)) : '') : ' \u00b7 ' + fmt(ml) + ' ml'}</span></div><div class="rack" data-shelf="${id}">${items.map(item).join('') || `<p class="empty">${wish ? 'Fragrances you want to try. Drag a bottle here, or tap the heart in the Library.' : 'Nothing on this shelf yet. Drag a bottle here or add a fragrance.'}</p>`}</div></section>`;
+  return `<section class="shelf${wish ? ' wish' : ''}"><div class="shelf-h"><h2>${esc(name)}</h2><span>${items.length}${wish ? (seen ? ' \u00b7 about ' + esc(money(seen)) : '') : ' \u00b7 ' + fmt(ml) + ' ml'}</span></div><div class="rack" data-shelf="${id}">${items.map(item).join('') || `<p class="empty">${id === 'buy' ? 'Bottles you plan to buy. They are not counted as yours until you tap I bought it. Drag a bottle here.' : wish ? 'Fragrances you want to try. Drag a bottle here, or tap the heart in the Library.' : 'Nothing on this shelf yet. Drag a bottle here or add a fragrance.'}</p>`}</div></section>`;
 }
 function banners() {
   let h = '';
@@ -2847,7 +2850,7 @@ function vShelf() {
     lowNote() +
     recapCard() +
     todayCard() +
-    `<div id="racks">${S.shelves.map(sh => rack(sh.id, sh.name, false)).join('')}${rack('wish', 'Wishlist', true)}</div>`
+    `<div id="racks">${S.shelves.map(sh => rack(sh.id, sh.name, false)).join('')}${rack('buy', 'I will buy it', true)}${rack('wish', 'Wishlist', true)}</div>`
   );
 }
 
@@ -3255,7 +3258,7 @@ let LIBV = [];
 function libRows() {
   LIBV = libFind(ui.lq, { b: ui.lb, f: ui.lf, c: ui.lc });
   const show = LIBV.slice(0, ui.llim);
-  const wished = new Set(S.perfumes.filter(p => p.shelf === 'wish').map(p => norm(p.brand + ' ' + p.name)));
+  const wished = new Set(S.perfumes.filter(p => notOwn(p.shelf)).map(p => norm(p.brand + ' ' + p.name)));
   if (!show.length)
     return '<p class="muted" style="padding:22px 4px">No matches. Try fewer words, or add it as your own entry.</p>';
   return (
@@ -3553,9 +3556,12 @@ const starsHtml = (k, v, dots) =>
 function sheetHtml() {
   const d = D,
     lv = +d.maxMl ? clamp((+d.ml || 0) / +d.maxMl, 0, 1) : 0,
-    wish = d.shelf === 'wish';
+    wish = notOwn(d.shelf);
   const shOpts = S.shelves
-    .concat([{ id: 'wish', name: 'Wishlist' }])
+    .concat([
+      { id: 'buy', name: 'I will buy it' },
+      { id: 'wish', name: 'Wishlist' }
+    ])
     .map(s => `<option value="${s.id}"${d.shelf === s.id ? ' selected' : ''}>${esc(s.name)}</option>`)
     .join('');
   const concs = !d.conc || CONCS.includes(d.conc) ? CONCS : CONCS.concat([d.conc]);
@@ -3631,7 +3637,7 @@ function openSheet(id, pre) {
         },
         pre || {}
       );
-  if (!p && D.shelf !== 'wish' && D.bought == null && (+S.settings.budget > 0 || (S.settings.nb && S.settings.nb.start)))
+  if (!p && !notOwn(D.shelf) && D.bought == null && (+S.settings.budget > 0 || (S.settings.nb && S.settings.nb.start)))
     D.bought = Date.now();
   ui.pyrEdit = false;
   MODAL = 'sheet';
@@ -3736,7 +3742,7 @@ function commitSheet() {
     const i = S.perfumes.findIndex(p => p.id === d.id);
     if (i >= 0) {
       const old = S.perfumes[i];
-      if (old.shelf === 'wish' || d.shelf === 'wish' || !d.cal) d.cal = { ml: d.ml, sprays: d.sprays || 0 };
+      if (notOwn(old.shelf) || notOwn(d.shelf) || !d.cal) d.cal = { ml: d.ml, sprays: d.sprays || 0 };
       else if (Math.abs((+old.ml || 0) - d.ml) >= 0.1) learnRate(d, old);
       S.perfumes[i] = d;
     }
@@ -3838,7 +3844,7 @@ function wearEditHtml() {
 function openWearEdit(id) {
   const w = S.wears.find(x => x.id === id);
   if (!w) return;
-  if (!byId(w.pid) || byId(w.pid).shelf === 'wish') {
+  if (!byId(w.pid) || notOwn(byId(w.pid).shelf)) {
     toast('This bottle is no longer in the cabinet');
     return;
   }
@@ -4404,7 +4410,7 @@ function leftText(days) {
   if (days < 730) return 'about ' + Math.round(days / 30) + ' months left';
   return 'years left at your pace';
 }
-const lowOf = p => p.shelf !== 'wish' && +p.maxMl > 0 && p.ml > 0 && p.ml / p.maxMl < 0.1;
+const lowOf = p => !notOwn(p.shelf) && +p.maxMl > 0 && p.ml > 0 && p.ml / p.maxMl < 0.1;
 const idleDays = p => {
   const lw = lastWorn(p.id);
   return Math.floor((Date.now() - (lw || p.created || Date.now())) / DAY);
@@ -4461,9 +4467,9 @@ function exportCsv(kind) {
         shelfName(p.shelf),
         p.type,
         p.maxMl,
-        p.shelf === 'wish' ? '' : p.ml,
+        notOwn(p.shelf) ? '' : p.ml,
         p.price,
-        hasPrice(p) && p.shelf !== 'wish' ? Math.round(valueLeft(p)) : '',
+        hasPrice(p) && !notOwn(p.shelf) ? Math.round(valueLeft(p)) : '',
         p.seen,
         p.target,
         allWears().filter(w => w.pid === p.id).length,
@@ -4635,7 +4641,7 @@ function wearMl(w) {
    None of this touches the collection value. */
 function wearPerMl(w) {
   const p = byId(w.pid);
-  if (p && p.shelf !== 'wish' && hasPrice(p)) return perMl(p);
+  if (p && !notOwn(p.shelf) && hasPrice(p)) return perMl(p);
   if (!w.test) return 0;
   const price = +w.price > 0 ? +w.price : p && +p.seen > 0 ? +p.seen : p && hasPrice(p) ? +p.price : 0;
   return price ? price / ((p && +p.maxMl) || 100) : 0;
@@ -4763,7 +4769,9 @@ function buyHtml() {
     run = nbDays(),
     goal = +s.nbGoal > 0 ? +s.nbGoal : 30,
     best = Math.max((s.nb && s.nb.best) || 0, run);
-  const wishSum = S.perfumes.filter(p => p.shelf === 'wish').reduce((a, p) => a + (+p.seen > 0 ? +p.seen : 0), 0);
+  const sumOf = id => S.perfumes.filter(p => p.shelf === id).reduce((a, p) => a + (+p.seen > 0 ? +p.seen : 0), 0),
+    planSum = sumOf('buy'),
+    wishSum = sumOf('wish');
   return `<div class="card" id="buyCard"><div class="ch"><h3>Purchases</h3><button class="btn ghost sm" data-act="budget">${bud ? 'Budget' : 'Set a budget'}</button></div>
  <div class="vbig"><b>${money(spent)}</b><span>${bud ? (spent > bud ? `spent this month \u00b7 <em class="over">${money(spent - bud)} over</em> the ${money(bud)} budget` : `spent this month \u00b7 ${money(bud - spent)} left of ${money(bud)}`) : 'spent this month'}</span></div>
  ${bud ? `<div class="vbar${spent > bud ? ' over' : ''}" role="img" aria-label="${pct}% of the budget spent"><b style="width:${pct}%"></b></div>` : ''}
@@ -4771,7 +4779,8 @@ function buyHtml() {
  <div class="bars sm">${M.map((x, i) => `<div class="bar${x.v ? '' : ' z'}${bud && x.v > bud ? ' over' : ''}" title="${esc(x.l)}: ${esc(money(x.v))} \u00b7 ${x.n} ${x.n === 1 ? 'bottle' : 'bottles'}" style="height:${x.v ? Math.max(6, (x.v / mx) * 100) : 2}%;animation-delay:${i * 30}ms"></div>`).join('')}</div><div class="axis">${M.map(x => `<span>${x.l}</span>`).join('')}</div>
  <div class="nb"><div class="nb-t"><b>${nb ? `${run} ${run === 1 ? 'day' : 'days'} without buying` : 'No-buy challenge'}</b><small>${nb ? `Goal ${goal} days${best > run ? ` \u00b7 best ${best}` : ''}${run >= goal ? ' \u00b7 goal reached' : ''}` : `Count the days without a new bottle. Goal ${goal} days.`}</small></div><button class="btn ${nb ? 'ghost ' : ''}sm" data-act="${nb ? 'nbStop' : 'nbStart'}">${nb ? 'Stop' : 'Start'}</button></div>
  ${nb ? `<div class="vbar" role="img" aria-label="${run} of ${goal} days"><b style="width:${Math.min(100, Math.round((run / goal) * 100))}%"></b></div>` : ''}
- ${wishSum ? `<p class="muted" style="margin-top:12px;font-size:13px">The wishlist would cost ${money(wishSum)} at the prices seen.</p>` : ''}</div>`;
+ ${planSum ? `<p class="muted" style="margin-top:12px;font-size:13px">I will buy it: ${money(planSum)} planned at the prices seen${bud ? (planSum > Math.max(0, bud - spent) ? ' \u00b7 more than the budget left this month' : ' \u00b7 fits in the budget left this month') : ''}.</p>` : ''}
+ ${wishSum ? `<p class="muted" style="margin-top:${planSum ? 4 : 12}px;font-size:13px">The wishlist would cost ${money(wishSum)} at the prices seen.</p>` : ''}</div>`;
 }
 function openBudget() {
   const s = S.settings;
@@ -5404,7 +5413,7 @@ async function startPhotoBatch(files) {
   const opts = S.perfumes.slice().sort((a, b) => (a.brand + a.name).localeCompare(b.brand + b.name));
   MODAL = 'photos';
   openModal(`<button class="x" data-act="close" aria-label="Close">\u00d7</button><h2>Add photos</h2><p class="muted" style="margin:6px 0 14px">${PH.length} ${PH.length === 1 ? 'photo' : 'photos'}. Choose the bottle for each one; photos matched by file name are already set.</p>
- ${PH.map((x, i) => `<div class="phrow"><img src="${x.url}" alt=""><select data-ph="${i}" aria-label="Bottle for ${esc(x.name)}"><option value="">Skip this photo</option>${opts.map(p => `<option value="${p.id}"${x.pid === p.id ? ' selected' : ''}>${esc(p.name)} \u00b7 ${esc(p.brand)}${p.shelf === 'wish' ? ' (wishlist)' : ''}${PHOTOS[p.id] ? ' \u00b7 has a photo' : ''}</option>`).join('')}</select></div>`).join('')}
+ ${PH.map((x, i) => `<div class="phrow"><img src="${x.url}" alt=""><select data-ph="${i}" aria-label="Bottle for ${esc(x.name)}"><option value="">Skip this photo</option>${opts.map(p => `<option value="${p.id}"${x.pid === p.id ? ' selected' : ''}>${esc(p.name)} \u00b7 ${esc(p.brand)}${notOwn(p.shelf) ? ' (wishlist)' : ''}${PHOTOS[p.id] ? ' \u00b7 has a photo' : ''}</option>`).join('')}</select></div>`).join('')}
  <div class="foot"><button class="btn ghost" data-act="close">Cancel</button><button class="btn" data-act="phSave">Save photos</button></div>`);
 }
 async function savePhotoBatch() {
@@ -5445,7 +5454,7 @@ function calcFor(o, back) {
     bottle =
       pp && pp.type !== 'Decant'
         ? pp
-        : M.find(q => q.type !== 'Decant' && q.shelf === 'wish') || M.find(q => q.type !== 'Decant') || null;
+        : M.find(q => q.type !== 'Decant' && notOwn(q.shelf)) || M.find(q => q.type !== 'Decant') || null;
   return {
     name: o.name,
     brand: o.brand,
@@ -5454,7 +5463,7 @@ function calcFor(o, back) {
     dPrice: dec && +dec.price > 0 ? dec.price : '',
     bMl: bottle ? bottle.maxMl : (e && e.s) || 100,
     bPrice:
-      bottle && bottle.shelf === 'wish' && +bottle.seen > 0
+      bottle && notOwn(bottle.shelf) && +bottle.seen > 0
         ? bottle.seen
         : +o.price > 0
           ? o.price
@@ -5658,7 +5667,7 @@ function takePending() {
   const ids = [];
   a.forEach(x => {
     const p = byId(x.pid);
-    if (!p || p.shelf === 'wish' || S.wears.some(w => w.wid === x.id)) return;
+    if (!p || notOwn(p.shelf) || S.wears.some(w => w.wid === x.id)) return;
     ids.push(logWear(p, clamp(+x.n || 3, 1, 20), +x.t || Date.now(), { wid: x.id }).id);
   });
   if (ids.length) {
@@ -5890,7 +5899,7 @@ async function drawShare() {
       x.fillStyle = GOLD;
       x.font = `500 58px ${SER}`;
       x.fillText(String(i + 1), 84, y + 92);
-      drawIn(x, await bottleImg(p, p.shelf === 'wish' ? 1 : p.maxMl ? p.ml / p.maxMl : 1, P.light), 200, y + 4, 86, 138);
+      drawIn(x, await bottleImg(p, notOwn(p.shelf) ? 1 : p.maxMl ? p.ml / p.maxMl : 1, P.light), 200, y + 4, 86, 138);
       x.fillStyle = TX;
       x.font = `600 50px ${SER}`;
       x.fillText(ell(x, p.name, 540), 276, y + 72);
@@ -6027,7 +6036,7 @@ async function drawShare() {
     }
   } else {
     const L = S.perfumes
-      .filter(p => p.shelf === 'wish')
+      .filter(p => notOwn(p.shelf))
       .sort((a, b) => (b.prio || 0) - (a.prio || 0))
       .slice(0, 5);
     head('On my wishlist', L.length ? 'Fragrances I would love to own' : '');
@@ -6094,7 +6103,7 @@ function testsText() {
     if (g.hours != null) b.push('lasted about ' + f(g.hours) + ' h');
     if (g.buy) b.push('would buy: ' + g.buy);
     if (+g.price > 0) b.push('price ' + money(g.price));
-    if (p) b.push(p.shelf === 'wish' ? 'on wishlist' : 'owned');
+    if (p) b.push(p.shelf === 'buy' ? 'to buy' : notOwn(p.shelf) ? 'on wishlist' : 'owned');
     const se = testSeason(g);
     if (se) b.push('season: ' + se.toLowerCase());
     const ny = pyrAll(pyrOf(g.brand, g.name));
@@ -6624,7 +6633,7 @@ const ACT = {
   lwish: a => {
     const e = LIB[+a.dataset.i];
     if (!e) return;
-    const i = S.perfumes.findIndex(p => p.shelf === 'wish' && norm(p.brand + ' ' + p.name) === e.k);
+    const i = S.perfumes.findIndex(p => notOwn(p.shelf) && norm(p.brand + ' ' + p.name) === e.k);
     if (i >= 0) {
       S.perfumes.splice(i, 1);
       toast('Removed from wishlist');

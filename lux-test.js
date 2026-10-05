@@ -550,7 +550,7 @@
   <div class="fg"><label class="tt-chk" style="margin:0"><input type="checkbox" id="ts-early" data-tc="tearly"${ST.earlier ? ' checked' : ''}> I sprayed earlier</label>${ST.earlier ? `<input type="datetime-local" id="ts-t" value="${toLocalInput(ST.t)}" max="${toLocalInput(Date.now())}" style="margin-top:8px">` : ''}</div>
   <div class="foot"><button class="btn ghost" data-act="close">Cancel</button><button class="btn" data-ta="tgo">Continue ${ST.earlier ? 'that' : 'today\u2019s'} test</button></div>`;
     return `<button class="x" data-act="close" aria-label="Close">\u00d7</button><h2>Start a test</h2>
-  <div class="fg" style="margin-top:16px"><label>Fragrance</label>${ST.name ? `<div class="tt-pick"><span><b>${esc(ST.name)}</b> <small>${esc(ST.brand)}${cab ? (cab.shelf === 'wish' ? ' \u00b7 on your wishlist' : ' \u00b7 in cabinet') : ''}</small></span><button data-ta="tclear">Change</button></div>` : `<input id="ts-q" data-ti="tsq" placeholder="Search your cabinet or library" autocomplete="off" value="${esc(ST.q)}"><div class="sugg" id="ts-sugg"></div>`}</div>
+  <div class="fg" style="margin-top:16px"><label>Fragrance</label>${ST.name ? `<div class="tt-pick"><span><b>${esc(ST.name)}</b> <small>${esc(ST.brand)}${cab ? (cab.shelf === 'buy' ? ' \u00b7 on I will buy it' : notOwn(cab.shelf) ? ' \u00b7 on your wishlist' : ' \u00b7 in cabinet') : ''}</small></span><button data-ta="tclear">Change</button></div>` : `<input id="ts-q" data-ti="tsq" placeholder="Search your cabinet or library" autocomplete="off" value="${esc(ST.q)}"><div class="sugg" id="ts-sugg"></div>`}</div>
   <div class="fg"><span class="lb">Where on the body</span><div class="chips">${SPOTS.map(([k, l]) => `<button type="button" class="chip${ST.spots.includes(k) ? ' on' : ''}" data-ta="tspot" data-v="${k}">${l}</button>`).join('')}</div></div>
   <span class="lb" style="text-align:center">Sprays</span><div class="stepper" style="margin:8px 0 16px"><button data-ta="tstep" data-d="-1" aria-label="Fewer">\u2212</button><b id="ts-n" style="font-size:44px">${ST.n}</b><button data-ta="tstep" data-d="1" aria-label="More">+</button></div>
   <div class="g2"><div class="fg"><label for="ts-venue">Where tested</label><input id="ts-venue" list="tt-venues" placeholder="Shop or home" value="${esc(ST.venue)}" autocomplete="off"><datalist id="tt-venues">${tt()
@@ -559,7 +559,7 @@
   <div class="fg"><label for="ts-price">Price (${esc(cur())}, optional)</label><input id="ts-price" type="number" min="0" step="0.5" value="${esc(ST.price)}"></div></div>
   <div class="fg"><label class="tt-chk" style="margin:0"><input type="checkbox" id="ts-early" data-tc="tearly"${ST.earlier ? ' checked' : ''}> I sprayed earlier</label>${ST.earlier ? `<input type="datetime-local" id="ts-t" value="${toLocalInput(ST.t)}" max="${toLocalInput(Date.now())}" style="margin-top:8px">` : ''}</div>
   <div class="fg"><span class="lb">Weather</span>${c && !ST.showCity ? `<div class="tt-pick"><span>Weather for <b>${esc(c.name || c.label)}</b></span><button data-ta="tcity">Change</button></div>` : `<div style="display:flex;gap:8px"><input id="ts-city" placeholder="City" autocomplete="off" value="${esc(c ? c.name || c.label : '')}"><button class="btn ghost sm" data-ta="tfind" style="flex:none">Find</button><button class="btn ghost sm" data-ta="tgeo" style="flex:none">Locate me</button></div><div class="tt-res" id="ts-cres">${cityRes()}</div>`}</div>
-  ${cab && cab.shelf !== 'wish' ? `<label class="tt-chk"><input type="checkbox" id="ts-log"${ST.log ? ' checked' : ''}> Also log these sprays in my cabinet (updates the ml left and the Journal)</label>` : ''}
+  ${cab && !notOwn(cab.shelf) ? `<label class="tt-chk"><input type="checkbox" id="ts-log"${ST.log ? ' checked' : ''}> Also log these sprays in my cabinet (updates the ml left and the Journal)</label>` : ''}
   <div class="foot"><button class="btn ghost" data-act="close">Cancel</button><button class="btn" data-ta="tgo">Start now</button></div>`;
   }
   function cityRes() {
@@ -643,7 +643,7 @@
     if (s.venue && !d.venues.includes(s.venue)) d.venues.push(s.venue);
     if (ST.city) d.city = ST.city;
     const cab = s.pid && byId(s.pid);
-    if (ST.log && cab && cab.shelf !== 'wish') {
+    if (ST.log && cab && !notOwn(cab.shelf)) {
       cab.ml = Math.max(0, Math.round((cab.ml - s.sprays / rateOf(cab)) * 10) / 10);
       cab.sprays = (cab.sprays || 0) + s.sprays;
       S.wears.push({ id: uid(), pid: cab.id, t: s.t0, n: s.sprays });
@@ -883,7 +883,7 @@
       tags = tagCounts(g).slice(0, 10),
       inCab = g.pid && byId(g.pid);
     const onWish = S.perfumes.some(
-      p => p.shelf === 'wish' && norm(p.brand + ' ' + p.name) === norm(g.brand + ' ' + g.name)
+      p => notOwn(p.shelf) && norm(p.brand + ' ' + p.name) === norm(g.brand + ' ' + g.name)
     );
     const rows = g.sessions
       .slice()
@@ -894,7 +894,7 @@
       )
       .join('');
     return `<button class="x" data-act="close" aria-label="Close">\u00d7</button><h2>${esc(g.name)}</h2><div class="muted">${esc(g.brand)}</div>
-  ${inCab && inCab.shelf !== 'wish' ? '' : `<div style="margin-top:14px">${similarHtml(g.brand, g.name, g.fam, g.pid)}</div>`}
+  ${inCab && !notOwn(inCab.shelf) ? '' : `<div style="margin-top:14px">${similarHtml(g.brand, g.name, g.fam, g.pid)}</div>`}
   <div class="tt-score" style="text-align:left;font-size:46px;margin:14px 0 2px">${r1(g.avg)}<small style="display:inline;margin-left:8px">average over ${g.done.length} ${g.done.length === 1 ? 'test' : 'tests'}</small></div>
   ${radar(ax)}
   ${g.hours != null ? `<div class="tt-kv"><span>Average longevity</span><span>${r1(g.hours)} h</span></div>` : ''}${g.price != null ? `<div class="tt-kv"><span>Last price</span><span>${esc(cur())}${fmt(g.price)}</span></div>` : ''}
@@ -1517,7 +1517,7 @@
         cab
           .map(
             p =>
-              `<button type="button" data-ta="tpickc" data-id="${p.id}">${esc(p.name)} <small>${esc(p.brand)} \u00b7 ${p.shelf === 'wish' ? 'on your wishlist' : 'in cabinet'}</small></button>`
+              `<button type="button" data-ta="tpickc" data-id="${p.id}">${esc(p.name)} <small>${esc(p.brand)} \u00b7 ${p.shelf === 'buy' ? 'on I will buy it' : notOwn(p.shelf) ? 'on your wishlist' : 'in cabinet'}</small></button>`
           )
           .join('') +
         lib
