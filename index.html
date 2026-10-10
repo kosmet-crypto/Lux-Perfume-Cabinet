@@ -827,7 +827,8 @@ label,
 }
 .ctl .fg {
   margin: 0;
-  min-width: 170px;
+  flex: 1 1 140px;
+  min-width: 0;
 }
 .donut-wrap {
   display: grid;
@@ -3601,7 +3602,7 @@ function vIns() {
  <div class="sg per" id="ins-p" role="group" aria-label="Period">${PERS.map(x => `<button data-act="insP" data-v="${x[0]}" class="${x[0] === p ? 'on' : ''}">${x[1]}</button>`).join('')}</div>
  <div class="kpis" id="kpis">${kpisHtml(d)}</div>
  ${valueHtml()}${buyHtml()}
- <div class="card"><div class="ctl"><div class="fg"><label for="ins-m">Measure</label><select id="ins-m" data-ch="insM">${opt(MEAS, m)}</select></div><div class="fg"><label for="ins-g">Group by</label><select id="ins-g" data-ch="insG">${opt(GRPS, g)}</select></div></div><div id="donutBox">${donutHtml(d)}</div></div>
+ <div class="card"><div class="ctl"><div class="fg"><label for="ins-m">Measure</label><select id="ins-m" data-ch="insM">${opt(MEAS, m)}</select></div><div class="fg"><label for="ins-g">Group by</label><select id="ins-g" data-ch="insG">${opt(GRPS, g)}</select></div><div class="fg"><label for="ins-pp">Period</label><select id="ins-pp" data-ch="insPP">${opt(PERS, p)}</select></div></div><div id="donutBox">${donutHtml(d)}</div></div>
  <div class="card"><h3>Wear activity</h3><div id="actBox">${activityHtml(p === 'all' ? '365' : p)}</div></div>
  ${notesHtml()}${cpwHtml()}${layerHtml()}${tempHtml()}${emptyHtml()}
  ${forgottenHtml()}
@@ -3617,6 +3618,9 @@ function updateIns() {
   $('#actBox').innerHTML = activityHtml(p === 'all' ? '365' : p);
   $('#rankBox').innerHTML = rankHtml(d);
   $$('#ins-p button').forEach(b => b.classList.toggle('on', b.dataset.v === p));
+  /* the period can also be changed beside the chart, so both stay in step */
+  const pp = $('#ins-pp');
+  if (pp) pp.value = p;
 }
 
 /* ================= library ================= */
@@ -7472,6 +7476,11 @@ document.addEventListener('input', e => {
 const CH = {
   insM: e => {
     S.settings.ins.m = e.value;
+    save();
+    updateIns();
+  },
+  insPP: e => {
+    S.settings.ins.p = e.value;
     save();
     updateIns();
   },
