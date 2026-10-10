@@ -74,7 +74,7 @@
     return h ? h + 'h ' + String(mm).padStart(2, '0') + 'm' : mm + 'm';
   }
   const clock = t => new Date(t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  const dshort = t => new Date(t).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+  const dshort = t => new Date(t).toLocaleDateString(I18N.loc, { day: 'numeric', month: 'short', year: 'numeric' });
   function toLocalInput(t) {
     const d = new Date(t);
     d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -436,7 +436,7 @@
   function groupRow(g) {
     const bars = CRIT.map(([k]) => `<i><b style="width:${g.crit[k] ? g.crit[k] * 10 : 0}%"></b></i>`).join('');
     return `<div class="tt-g" data-ta="group" data-k="${esc(g.key)}" role="button" tabindex="0"><div class="th">${bt((g.pid && byId(g.pid)) || { id: 'g' + g.key, name: g.name, brand: g.brand, fam: g.fam }, 0.7)}</div>
-  <div class="mid"><div class="t1">${esc(g.name)}</div><div class="t2">${esc(g.brand)} \u00b7 ${g.done.length} ${g.done.length === 1 ? 'test' : 'tests'}${g.buy === 'yes' ? ' \u00b7 would buy' : ''}</div><div class="tt-bars">${bars}</div></div>
+  <div class="mid"><div class="t1" data-raw>${esc(g.name)}</div><div class="t2">${esc(g.brand)} \u00b7 ${g.done.length} ${g.done.length === 1 ? 'test' : 'tests'}${g.buy === 'yes' ? ' \u00b7 would buy' : ''}</div><div class="tt-bars">${bars}</div></div>
   <div class="tt-score">${r1(g.avg)}<small>average</small></div></div>`;
   }
   let TQ = '',
