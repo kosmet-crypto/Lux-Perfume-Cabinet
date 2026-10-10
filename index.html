@@ -270,6 +270,13 @@ h3 {
     transform 0.2s,
     filter 0.2s;
 }
+a.btn {
+  display: inline-block;
+  text-decoration: none;
+}
+.hint a {
+  color: var(--gold);
+}
 .btn:hover {
   filter: brightness(1.08);
   transform: translateY(-1px);
@@ -2430,14 +2437,10 @@ async function loadImported() {
   const a = await idb.get('imported');
   IMPORTED = Array.isArray(a) ? a : [];
 }
-/* Picture search for a fragrance. Light theme: Fragrantica first, whose bottles stand on white.
- Dark theme: pictures on a black background. Without a filter: the whole web. */
-function picUrl(d, themed) {
+/* Picture search for a fragrance: Fragrantica first, or the whole web. */
+function picUrl(d, frag) {
   const q = (d.brand + ' ' + d.name).trim();
-  if (!themed) return 'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(q + ' perfume bottle');
-  return EFF === 'light'
-    ? 'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(q + ' site:fragrantica.com')
-    : 'https://www.google.com/search?tbm=isch&tbs=ic:specific,isc:black&q=' + encodeURIComponent(q + ' perfume bottle');
+  return 'https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(q + (frag ? ' site:fragrantica.com' : ' perfume bottle'));
 }
 /* Makes the white background of a bottle picture transparent, so the bottle stands on the shelf in
  either theme. Only white that touches the edge is removed (a white label stays), the edge is
@@ -3856,7 +3859,6 @@ function endConfirm(v) {
 /* "Match device": the Android app reports the phone's dark mode itself (a WebView follows the app's
    own theme, which is always dark); browsers use prefers-color-scheme. The app's status and
    navigation bars follow the page. */
-let EFF = 'dark'; /* the theme in use, also when it follows the phone */
 function applyTheme() {
   const t = S.settings.theme,
     r = document.documentElement,
@@ -3874,7 +3876,6 @@ function applyTheme() {
         : matchMedia('(prefers-color-scheme: light)').matches
           ? 'light'
           : 'dark';
-  EFF = eff;
   if (t === 'auto' && !and) r.removeAttribute('data-theme');
   else r.setAttribute('data-theme', eff);
   const bg = getComputedStyle(r).getPropertyValue('--bg').trim(),
@@ -3936,7 +3937,7 @@ function sheetHtml() {
  ${wish ? `<div class="g2"><div class="fg"><label for="f-where">Where to buy</label><input id="f-where" data-in="sheet" placeholder="Shop, website or link" value="${esc(d.where || '')}"></div><div class="fg"><span class="lb">How much you want it</span>${starsHtml('prio', d.prio || 0)}</div></div>` : ''}
  <div class="fg"><span class="lb">Notes pyramid</span>${ui.pyrEdit ? pyrFormHtml(d._pyr || pyrOf(d.brand, d.name)) : (pyrHtml(pyrOf(d.brand, d.name)) || '<p class="muted" style="font-size:13.5px">No notes yet.</p>') + `<button type="button" class="btn ghost sm" data-act="pyrEdit" style="margin-top:8px">${pyrOf(d.brand, d.name) ? 'Edit notes' : 'Paste notes'}</button>`}</div>
  <div class="fg"><label for="f-notes">Your notes</label><textarea id="f-notes" data-in="sheet" placeholder="How it wears, when you reach for it">${esc(d.notes)}</textarea></div>
- <div class="fg"><span class="lb">Photo</span><div class="acts"><button type="button" class="btn ghost sm" data-act="photoPick">${PHOTOS[d.id] ? 'Change photo' : 'Add photo'}</button>${PHOTOS[d.id] ? '<button type="button" class="btn ghost sm" data-act="photoDel">Remove photo</button>' : ''}${PHOTOS[d.id] ? '<button type="button" class="btn ghost sm" data-act="photoBg">Remove white background</button>' : ''}${d.name ? `<a class="btn ghost sm" href="${picUrl(d, 1)}" target="_blank" rel="noopener">Find a picture online</a>` : ''}</div>${d.name ? `<small class="hint"><a href="${picUrl(d, 0)}" target="_blank" rel="noopener">Search the whole web</a></small>` : ''}${PHOTOS[d.id] ? '' : '<small class="hint">Best is a photo of your own bottle. Or find a picture online, save it to the phone (press and hold it, then Download) and pick it with Add photo. Pictures you save are for your own use.</small>'}<input type="file" id="photoFile" accept="image/*"></div>
+ <div class="fg"><span class="lb">Photo</span><div class="acts"><button type="button" class="btn ghost sm" data-act="photoPick">${PHOTOS[d.id] ? 'Change photo' : 'Add photo'}</button>${PHOTOS[d.id] ? '<button type="button" class="btn ghost sm" data-act="photoDel">Remove photo</button>' : ''}${PHOTOS[d.id] ? '<button type="button" class="btn ghost sm" data-act="photoBg">Remove white background</button>' : ''}${d.name ? `<a class="btn ghost sm" href="${picUrl(d, 1)}" target="_blank" rel="noopener">Find a picture online</a>` : ''}</div>${d.name ? `<small class="hint"><a class="lnk" href="${picUrl(d, 0)}" target="_blank" rel="noopener">Search the whole web</a></small>` : ''}${PHOTOS[d.id] ? '' : '<small class="hint">Best is a photo of your own bottle. Or find a picture online, save it to the phone (press and hold it, then Download) and pick it with Add photo. Pictures you save are for your own use.</small>'}<input type="file" id="photoFile" accept="image/*"></div>
  ${sheetNew && !known ? `<div class="set-row" style="border:0;padding:4px 0"><label for="f-savelib" style="margin:0">Also save to my library</label><input type="checkbox" id="f-savelib" checked style="width:20px;height:20px"></div>` : ''}
  <div class="foot">${sheetNew ? '' : '<button class="btn danger sp" data-act="sheetDel">Delete</button>'}${!sheetNew && !wish ? '<button class="btn ghost" data-act="sheetWear">Log a wear</button>' : ''}${!sheetNew && wish && window.__luxTest ? '<button class="btn ghost" data-act="wishTest">Test</button>' : ''}${!sheetNew && (wish || d.type === 'Decant') ? '<button class="btn ghost" data-act="calcSheet">Decant or bottle?</button>' : ''}${!sheetNew && wish ? '<button class="btn ghost" data-act="boughtDec">I bought a decant</button><button class="btn ghost" data-act="bought">I bought it</button>' : ''}<button class="btn" data-act="sheetSave">${sheetNew ? 'Add to cabinet' : 'Save changes'}</button></div>`;
 }
