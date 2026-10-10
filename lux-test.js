@@ -453,7 +453,8 @@
   <div class="mid"><div class="t1" data-raw>${esc(g.name)}</div><div class="t2">${esc(g.brand)} \u00b7 ${g.done.length} ${g.done.length === 1 ? 'test' : 'tests'}${g.buy === 'yes' ? ' \u00b7 would buy' : ''}</div><div class="tt-bars">${bars}</div></div>
   <div class="tt-score">${r1(g.avg)}<small>average</small></div></div>`;
   }
-  let TQ = '',
+  let TLIM = 10,
+    TQ = '',
     TSORT = 'best';
   function listHtml() {
     let gs = groups().filter(g => g.done.length);
@@ -464,7 +465,11 @@
     else gs.sort((a, b) => (a.brand + a.name).localeCompare(b.brand + b.name));
     if (!gs.length)
       return `<p class="muted" style="padding:16px 4px">${TQ ? 'No tested fragrance matches.' : 'Nothing rated yet. Start a test, then rate it and it lands here with a permanent average.'}</p>`;
-    return gs.map(groupRow).join('');
+    /* the first ten, then more on request */
+    return (
+      gs.slice(0, TLIM).map(groupRow).join('') +
+      (gs.length > TLIM ? `<div style="text-align:center;margin-top:14px"><button class="btn ghost sm" data-ta="tmore">Show more (${gs.length - TLIM} left)</button></div>` : '')
+    );
   }
   function testHtml() {
     const all = tt().sessions,
@@ -1128,6 +1133,11 @@
       await idb.set('photo:' + id, u);
       regroup(a.dataset.k);
       toast('Background removed');
+    },
+    tmore: () => {
+      TLIM += 20;
+      const box = $('#ttList');
+      if (box) box.innerHTML = listHtml();
     },
     gopen: a => {
       closeAll();
