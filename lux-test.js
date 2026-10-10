@@ -885,6 +885,8 @@
     const onWish = S.perfumes.some(
       p => notOwn(p.shelf) && norm(p.brand + ' ' + p.name) === norm(g.brand + ' ' + g.name)
     );
+    /* the bottle of this fragrance in the cabinet or on the wishlist, to open it from here */
+    const mine = inCab || S.perfumes.find(p => norm(p.brand + ' ' + p.name) === norm(g.brand + ' ' + g.name));
     const rows = g.sessions
       .slice()
       .sort((a, b) => b.t0 - a.t0)
@@ -902,7 +904,7 @@
   ${tags.length ? `<div style="margin:16px 0 4px"><span class="lb">What you smelled most</span><div class="chips">${tags.map(([t, c]) => `<span class="chip">${esc(t)} \u00b7 ${c}</span>`).join('')}</div></div>` : ''}
   <div style="margin:16px 0 4px"><span class="lb">Notes pyramid</span>${pyrHtml(pyrOf(g.brand, g.name)) || '<p class="muted" style="font-size:13.5px">No notes yet.</p>'}<button class="btn ghost sm" data-ta="gnotes" data-k="${esc(g.key)}" style="margin-top:8px">${pyrOf(g.brand, g.name) ? 'Edit notes' : 'Paste notes'}</button></div>
   <h3 style="margin:22px 0 2px">Tests</h3>${rows}
-  <div class="foot">${inCab ? '<button class="btn ghost" data-ta="gsync" data-k="' + esc(g.key) + '">Update cabinet ratings</button>' : onWish ? '' : '<button class="btn ghost" data-ta="gwish" data-k="' + esc(g.key) + '">Add to wishlist</button>'}<button class="btn ghost" data-ta="gcalc" data-k="${esc(g.key)}">Decant or bottle?</button>${g.done.length && groups().filter(x => x.done.length).length > 1 ? `<button class="btn ghost" data-ta="cmp" data-k="${esc(g.key)}">Compare</button>` : ''}<button class="btn" data-ta="again" data-k="${esc(g.key)}">Test again</button></div>`;
+  <div class="foot">${mine ? `<button class="btn ghost" data-ta="gopen" data-id="${mine.id}">${notOwn(mine.shelf) ? 'Open on the wishlist' : 'Open the bottle'}</button>` : ''}${inCab ? '<button class="btn ghost" data-ta="gsync" data-k="' + esc(g.key) + '">Update cabinet ratings</button>' : onWish ? '' : '<button class="btn ghost" data-ta="gwish" data-k="' + esc(g.key) + '">Add to wishlist</button>'}<button class="btn ghost" data-ta="gcalc" data-k="${esc(g.key)}">Decant or bottle?</button>${g.done.length && groups().filter(x => x.done.length).length > 1 ? `<button class="btn ghost" data-ta="cmp" data-k="${esc(g.key)}">Compare</button>` : ''}<button class="btn" data-ta="again" data-k="${esc(g.key)}">Test again</button></div>`;
   }
   const findGroup = k => groups().find(g => g.key === k);
   const reopenGroup = k => () => {
@@ -1088,6 +1090,10 @@
         return;
       }
       openStart({ pid: g.pid, name: g.name, brand: g.brand, fam: g.fam });
+    },
+    gopen: a => {
+      closeAll();
+      openSheet(a.dataset.id);
     },
     gwish: a => {
       const g = findGroup(a.dataset.k);
