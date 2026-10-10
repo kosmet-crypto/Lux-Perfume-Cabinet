@@ -356,14 +356,23 @@ a.btn {
   box-shadow: 0 0 0 1px var(--gold) inset;
 }
 .wish .rack {
-  background-image: linear-gradient(to bottom, transparent calc(100% - 1px), var(--line2) calc(100% - 1px));
+  background-image: none;
 }
 .wish .bt {
   opacity: 0.72;
 }
-/* wishlist tiles carry up to three extra lines (stars, price seen, target), so their rows are taller */
+/* wishlist rows fit their own tiles: a row without prices or stars stays low; each tile carries the
+ ledge line and empty cells of the last row are filled so the line runs across */
 .wish .rack {
-  --rowh: calc(262px + var(--wl, 3) * 16px);
+  grid-auto-rows: auto;
+  min-height: 200px;
+}
+.wish .rack .it {
+  border-radius: 0;
+  border-bottom: 1px solid var(--line2);
+}
+.wish .rack .fill {
+  border-bottom: 1px solid var(--line2);
 }
 .empty {
   grid-column: 1/-1;
@@ -1475,9 +1484,6 @@ button.lnk {
   .rack {
     --rowh: 246px;
     grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-  }
-  .wish .rack {
-    --rowh: calc(246px + var(--wl, 3) * 16px);
   }
   .bt {
     width: 82px;
@@ -3201,7 +3207,7 @@ function rack(id, name, wish) {
   const items = S.perfumes.filter(p => p.shelf === id).sort((a, b) => (wish ? (+b.prio || 0) - (+a.prio || 0) : 0)),
     ml = items.reduce((a, p) => a + p.ml, 0),
     seen = items.reduce((a, p) => a + (+p.seen > 0 ? +p.seen : 0), 0);
-  return `<section class="shelf${wish ? ' wish' : ''}"><div class="shelf-h"><h2>${esc(name)}</h2><span>${items.length}${wish ? (seen ? ' \u00b7 about ' + esc(money(seen)) : '') : ' \u00b7 ' + fmt(ml) + ' ml'}</span></div><div class="rack" data-shelf="${id}"${wish ? ` style="--wl:${Math.max(0, ...items.map(p => (p.prio ? 1 : 0) + (+p.seen > 0 ? 1 : 0) + (+p.target > 0 ? 1 : 0)))}"` : ''}>${items.map(item).join('') || `<p class="empty">${wish ? 'Fragrances you want to try. Drag a bottle here, or tap the heart in the Library.' : 'Nothing on this shelf yet. Drag a bottle here or add a fragrance.'}</p>`}</div></section>`;
+  return `<section class="shelf${wish ? ' wish' : ''}"><div class="shelf-h"><h2>${esc(name)}</h2><span>${items.length}${wish ? (seen ? ' \u00b7 about ' + esc(money(seen)) : '') : ' \u00b7 ' + fmt(ml) + ' ml'}</span></div><div class="rack" data-shelf="${id}">${items.map(item).join('') || `<p class="empty">${wish ? 'Fragrances you want to try. Drag a bottle here, or tap the heart in the Library.' : 'Nothing on this shelf yet. Drag a bottle here or add a fragrance.'}</p>`}</div></section>`;
 }
 function banners() {
   let h = '';
@@ -3873,10 +3879,20 @@ function openIntro() {
 }
 
 /* ================= render ================= */
+function fillWish() {
+  const r = $('.wish .rack');
+  if (!r) return;
+  $$('.fill', r).forEach(e => e.remove());
+  const n = r.querySelectorAll('.it').length,
+    cols = getComputedStyle(r).gridTemplateColumns.split(' ').length;
+  if (n && n % cols) r.insertAdjacentHTML('beforeend', '<div class="fill"></div>'.repeat(cols - (n % cols)));
+}
+addEventListener('resize', () => fillWish());
 function render() {
   const v = $('#view');
   v.innerHTML = ({ shelf: vShelf, journal: vJournal, ins: vIns, lib: vLib, set: vSet, help: vHelp, how: vHow }[ui.tab] || vShelf)();
   $$('#nav .nb').forEach(b => b.classList.toggle('on', b.dataset.t === ({ lib: 'shelf', help: 'set', how: 'set' }[ui.tab] || ui.tab)));
+  fillWish();
   const own = owned();
   $('#railFoot').innerHTML = `${own.length} in the cabinet<br>${fmt(LIB.length)} in the library`;
   if (ui.tab === 'ins') animateDonut();
