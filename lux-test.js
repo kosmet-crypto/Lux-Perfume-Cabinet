@@ -453,7 +453,7 @@
   <div class="mid"><div class="t1" data-raw>${esc(g.name)}</div><div class="t2">${esc(g.brand)} \u00b7 ${g.done.length} ${g.done.length === 1 ? 'test' : 'tests'}${g.buy === 'yes' ? ' \u00b7 would buy' : ''}</div><div class="tt-bars">${bars}</div></div>
   <div class="tt-score">${r1(g.avg)}<small>average</small></div></div>`;
   }
-  let TLIM = 10,
+  let TLIM = 7,
     TQ = '',
     TSORT = 'best';
   function listHtml() {
