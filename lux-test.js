@@ -93,7 +93,8 @@
     return o;
   }
   const elapsed = s => (s.fadedAt || Date.now()) - s.t0;
-  const pv = s => (s.pid && byId(s.pid)) || { id: 't' + s.id, name: s.name, brand: s.brand, fam: s.fam || '' };
+  const pv = s =>
+    (s.pid && byId(s.pid)) || bottleOf({ key: keyOf(s) }) || { id: 't' + s.id, name: s.name, brand: s.brand, fam: s.fam || '' };
   const spotsText = s => (s.spots || []).map(c => (SPOTS.find(x => x[0] === c) || [0, c])[1]).join(' + ');
   /* What was sprayed in a test, for the rating sheet and a repeat start on the same day. */
   const sprayLine = s =>
@@ -148,6 +149,12 @@
   function keyOf(s) {
     const p = s.pid && byId(s.pid);
     return 'n:' + norm(((p ? p.brand : s.brand) || '') + ' ' + (p ? p.name : s.name));
+  }
+  /* The bottle that shows a tested fragrance: the linked one, else one of the same fragrance in the
+   cabinet or on the wishlist (so its photo shows here too). */
+  function bottleOf(g) {
+    const L = S.perfumes.filter(p => keyOf({ pid: p.id }) === g.key);
+    return (g.pid && byId(g.pid)) || L.find(p => !notOwn(p.shelf)) || L[0] || null;
   }
   function groups() {
     const map = new Map();
@@ -435,7 +442,7 @@
   }
   function groupRow(g) {
     const bars = CRIT.map(([k]) => `<i><b style="width:${g.crit[k] ? g.crit[k] * 10 : 0}%"></b></i>`).join('');
-    return `<div class="tt-g" data-ta="group" data-k="${esc(g.key)}" role="button" tabindex="0"><div class="th">${bt((g.pid && byId(g.pid)) || { id: 'g' + g.key, name: g.name, brand: g.brand, fam: g.fam }, 0.7)}</div>
+    return `<div class="tt-g" data-ta="group" data-k="${esc(g.key)}" role="button" tabindex="0"><div class="th">${bt(bottleOf(g) || { id: 'g' + g.key, name: g.name, brand: g.brand, fam: g.fam }, 0.7)}</div>
   <div class="mid"><div class="t1" data-raw>${esc(g.name)}</div><div class="t2">${esc(g.brand)} \u00b7 ${g.done.length} ${g.done.length === 1 ? 'test' : 'tests'}${g.buy === 'yes' ? ' \u00b7 would buy' : ''}</div><div class="tt-bars">${bars}</div></div>
   <div class="tt-score">${r1(g.avg)}<small>average</small></div></div>`;
   }
