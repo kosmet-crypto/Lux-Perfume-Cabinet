@@ -153,8 +153,12 @@
   /* The bottle that shows a tested fragrance: the linked one, else one of the same fragrance in the
    cabinet or on the wishlist (so its photo shows here too). */
   function bottleOf(g) {
-    const L = S.perfumes.filter(p => keyOf({ pid: p.id }) === g.key);
-    return (g.pid && byId(g.pid)) || L.find(p => !notOwn(p.shelf)) || L[0] || null;
+    const L = S.perfumes.filter(p => keyOf({ pid: p.id }) === g.key),
+      b = (g.pid && byId(g.pid)) || L.find(p => !notOwn(p.shelf)) || L[0] || null,
+      gid = 'g' + g.key;
+    /* a photo added in the Test lab shows until the bottle has its own */
+    if (PHOTOS[gid] && (!b || !PHOTOS[b.id])) return { id: gid, name: g.name, brand: g.brand, fam: g.fam || (b && b.fam) || '' };
+    return b;
   }
   function groups() {
     const map = new Map();
@@ -902,7 +906,11 @@
           `<div class="tt-g" data-ta="open" data-id="${s.id}" role="button" tabindex="0" style="padding:11px 4px"><div class="mid"><div class="t1" style="font-size:16px">${dshort(s.t0)}</div><div class="t2">${[s.venue, s.weather ? s.weather.temp + '\u00b0' : '', spotsLabel(s), isDone(s) ? '' : 'not rated'].filter(Boolean).map(esc).join(' \u00b7 ')}</div></div><div class="tt-score" style="font-size:24px">${isDone(s) ? r1(score(s)) : '\u2014'}</div></div>`
       )
       .join('');
-    return `<button class="x" data-act="close" aria-label="Close">\u00d7</button><h2>${esc(g.name)}</h2><div class="muted">${esc(g.brand)}</div>
+    const gid = 'g' + g.key,
+      ph = mine
+        ? ''
+        : `<div class="acts" style="margin-top:12px"><button type="button" class="btn ghost sm" data-ta="gphoto" data-k="${esc(g.key)}">${PHOTOS[gid] ? 'Change photo' : 'Add photo'}</button>${PHOTOS[gid] ? `<button type="button" class="btn ghost sm" data-ta="gphotoBg" data-k="${esc(g.key)}">Remove white background</button>` : ''}<a class="btn ghost sm" href="${picUrl(g, 1)}" target="_blank" rel="noopener">Find a picture online</a><input type="file" id="gpFile" accept="image/*" hidden></div>`;
+    return `<button class="x" data-act="close" aria-label="Close">\u00d7</button><div style="display:flex;gap:14px;align-items:center">${PHOTOS[gid] && !mine ? `<div class="th" style="width:46px;height:72px;flex:none">${bt({ id: gid, name: g.name, brand: g.brand, fam: g.fam }, 0.7)}</div>` : ''}<div><h2>${esc(g.name)}</h2><div class="muted">${esc(g.brand)}</div></div></div>${ph}
   ${inCab && !notOwn(inCab.shelf) ? '' : `<div style="margin-top:14px">${similarHtml(g.brand, g.name, g.fam, g.pid)}</div>`}
   <div class="tt-score" style="text-align:left;font-size:46px;margin:14px 0 2px">${r1(g.avg)}<small style="display:inline;margin-left:8px">average over ${g.done.length} ${g.done.length === 1 ? 'test' : 'tests'}</small></div>
   ${radar(ax)}
@@ -1067,6 +1075,11 @@
       sprays: 0
     };
     if (+g.price > 0) w.seen = +g.price;
+    const gid = 'g' + (g.key || keyOf(g));
+    if (PHOTOS[gid]) {
+      PHOTOS[w.id] = PHOTOS[gid];
+      idb.set('photo:' + w.id, PHOTOS[gid]);
+    }
     S.perfumes.push(w);
     save();
     toast('Added to your wishlist');
@@ -1097,6 +1110,21 @@
         return;
       }
       openStart({ pid: g.pid, name: g.name, brand: g.brand, fam: g.fam });
+    },
+    /* a photo for a tested fragrance that is in neither the cabinet nor the wishlist */
+    gphoto: a => {
+      GPK = a.dataset.k;
+      const f = $('#gpFile');
+      if (f) f.click();
+    },
+    gphotoBg: async a => {
+      const id = 'g' + a.dataset.k,
+        u = PHOTOS[id] && (await removeWhite(PHOTOS[id]).catch(() => null));
+      if (!u) return toast('No white background found');
+      PHOTOS[id] = u;
+      await idb.set('photo:' + id, u);
+      regroup(a.dataset.k);
+      toast('Background removed');
     },
     gopen: a => {
       closeAll();
@@ -1580,7 +1608,27 @@
       paintST();
     }
   };
-  document.addEventListener('change', e => {
+  let GPK = null;
+  function regroup(k) {
+    const g = findGroup(k);
+    if (g && $('#modal .panel')) $('#modal .panel').innerHTML = groupHtml(g);
+    refresh();
+  }
+  document.addEventListener('change', async e => {
+    if (e.target.id === 'gpFile' && e.target.files[0] && GPK) {
+      try {
+        const url = await compressImage(e.target.files[0]),
+          id = 'g' + GPK;
+        PHOTOS[id] = url;
+        await idb.set('photo:' + id, url);
+        if (!(S.tt.photos || []).includes(id)) (S.tt.photos = S.tt.photos || []).push(id);
+        save();
+        regroup(GPK);
+      } catch (err) {
+        toast('That image could not be read');
+      }
+      return;
+    }
     const k = e.target.dataset && e.target.dataset.tc;
     if (k && TC[k]) TC[k](e.target, e);
   });
