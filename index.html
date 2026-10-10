@@ -2428,11 +2428,13 @@ const idb = {
 };
 let PHOTOS = {},
   IMPORTED = [];
+/* Photos are kept per bottle, and per tested fragrance that has no bottle (Test lab) */
+const photoIds = () => S.perfumes.map(p => p.id).concat((S.tt && S.tt.photos) || []);
 async function loadPhotos() {
   PHOTOS = {};
-  for (const p of S.perfumes) {
-    const d = await idb.get('photo:' + p.id);
-    if (d) PHOTOS[p.id] = d;
+  for (const id of photoIds()) {
+    const d = await idb.get('photo:' + id);
+    if (d) PHOTOS[id] = d;
   }
 }
 async function loadImported() {
@@ -4398,9 +4400,9 @@ async function doImport() {
 /* ================= backup ================= */
 async function buildBackup() {
   const photos = {};
-  for (const p of S.perfumes) {
-    const d = PHOTOS[p.id] || (await idb.get('photo:' + p.id));
-    if (d) photos[p.id] = d;
+  for (const id of photoIds()) {
+    const d = PHOTOS[id] || (await idb.get('photo:' + id));
+    if (d) photos[id] = d;
   }
   return JSON.stringify({
     app: 'lux-perfume-cabinet',
@@ -4492,7 +4494,7 @@ async function restoreText(txt) {
   );
   if (!ok) return;
   snapNow('Before restore');
-  for (const p of S.perfumes) await idb.del('photo:' + p.id);
+  for (const id of photoIds()) await idb.del('photo:' + id);
   S = migrate(o.state);
   PHOTOS = {};
   for (const id in o.photos || {}) {
@@ -7206,7 +7208,7 @@ const ACT = {
     ).then(async ok => {
       if (!ok) return;
       snapNow('Before erase');
-      for (const p of S.perfumes) await idb.del('photo:' + p.id);
+      for (const id of photoIds()) await idb.del('photo:' + id);
       PHOTOS = {};
       S = defaults();
       persist();
