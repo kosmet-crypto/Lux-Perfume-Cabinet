@@ -25,21 +25,22 @@
   box-sizing: border-box;
   padding-top: env(safe-area-inset-top, 0px);
   padding-bottom: env(safe-area-inset-bottom, 0px);
-  --bg: #161a18;
-  --bg2: #1c211e;
-  --surf: #222825;
-  --surf2: #2a312d;
-  --line: rgba(232, 220, 190, 0.13);
-  --line2: rgba(232, 220, 190, 0.26);
-  --tx: #f5f0e4;
-  --tx2: #cdc7b8;
-  --tx3: #a39d8c;
-  --gold: #dcbd7e;
-  --gold2: #eed9a6;
+  /* dark theme: softer than pure white on black, with a calmer, deeper gold, to rest the eyes */
+  --bg: #181a19;
+  --bg2: #1e2120;
+  --surf: #242827;
+  --surf2: #2c302e;
+  --line: rgba(232, 220, 190, 0.12);
+  --line2: rgba(232, 220, 190, 0.24);
+  --tx: #e6e0d2;
+  --tx2: #c2bcae;
+  --tx3: #9f998a;
+  --gold: #c8a96e;
+  --gold2: #ddc595;
   --goldink: #19130a;
-  --glow: rgba(220, 189, 126, 0.14);
-  --danger: #dd7565;
-  --ledge: rgba(202, 169, 107, 0.34);
+  --glow: rgba(200, 169, 110, 0.13);
+  --danger: #d4705f;
+  --ledge: rgba(190, 158, 100, 0.32);
   --scrim: rgba(6, 7, 6, 0.66);
   --glass: rgba(255, 255, 255, 0.04);
   --gf: rgba(255, 255, 255, 0.07);
@@ -1155,6 +1156,33 @@ label,
   color: var(--danger);
 }
 /* library */
+/* one search on the Collection: your bottles, the wishlist and the library at once */
+.gs {
+  margin: 0 0 22px;
+}
+.gs input {
+  width: 100%;
+}
+.gs .lrow {
+  gap: 10px;
+}
+.gs .lrow .ac {
+  gap: 6px;
+}
+.gs .lrow .ac .btn {
+  white-space: nowrap;
+  padding-left: 12px;
+  padding-right: 12px;
+}
+.gs-new {
+  padding: 14px 6px 4px;
+  font-size: 13.5px;
+  color: var(--tx3);
+}
+.gs-new .acts {
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
 .lrow {
   display: flex;
   gap: 16px;
@@ -2831,7 +2859,7 @@ function seed() {
 }
 
 /* ================= ui state ================= */
-const ui = { tab: 'shelf', jm: 0, jlim: 40, pick: 0, llim: 60, lq: '', lb: '', lf: '', lc: '', rank: 'used' };
+const ui = { gq: '', tab: 'shelf', jm: 0, jlim: 40, pick: 0, llim: 60, lq: '', lb: '', lf: '', lc: '', rank: 'used' };
 const spm = () => Math.max(1, +S.settings.spm || 11);
 const cur = () => S.settings.cur || '';
 
@@ -2869,6 +2897,7 @@ function vShelf() {
     ml = own.reduce((a, p) => a + p.ml, 0);
   return (
     `<header class="vh"><div><h1>Collection</h1><p class="sub2">${own.length} ${own.length === 1 ? 'fragrance' : 'fragrances'} \u00b7 ${fmtMl(ml)} \u00b7 about ${fmt(own.reduce((a, p) => a + p.ml * rateOf(p), 0))} sprays left</p></div><div class="acts"><button class="btn ghost" data-act="share">Share</button><button class="btn ghost" data-act="tab" data-t="lib">Library</button><button class="btn" data-act="add">Add fragrance</button></div></header>` +
+    `<div class="gs"><input id="gq" type="search" data-in="gq" placeholder="Find a fragrance: your bottles, wishlist and library" autocomplete="off" enterkeyhint="search" aria-label="Find a fragrance" value="${esc(ui.gq)}"><div id="gres">${gsRows()}</div></div>` +
     banners() +
     lowNote() +
     recapCard() +
@@ -3297,6 +3326,49 @@ function libRows() {
       : '')
   );
 }
+/* Search on the Collection: what you have (cabinet and wishlist) first, then the library, and a way
+ to add a fragrance that is in neither, to the wishlist, to a test or to the cabinet. */
+function gsRows() {
+  const q = (ui.gq || '').trim(),
+    words = norm(q).split(/\s+/).filter(Boolean);
+  if (!words.length) return '';
+  const T = window.__luxTest,
+    have = new Set(S.perfumes.map(p => norm(p.brand + ' ' + p.name))),
+    mine = S.perfumes.filter(p => words.every(w => norm(p.brand + ' ' + p.name).includes(w))).slice(0, 6),
+    lib = libFind(q)
+      .filter(i => !have.has(LIB[i].k))
+      .slice(0, 8);
+  const row = (th, t1, t2, ac, attrs) =>
+    `<div class="lrow"${attrs || ''}><div class="th">${th}</div><div class="mid"><div class="t1">${t1}</div><div class="t2">${t2}</div></div><div class="ac">${ac}</div></div>`;
+  return (
+    mine
+      .map(p =>
+        row(
+          bt(p, notOwn(p.shelf) ? 1 : p.maxMl ? p.ml / p.maxMl : 0),
+          esc(p.name),
+          esc(p.brand) + ' \u00b7 ' + (notOwn(p.shelf) ? 'on your wishlist' : 'in ' + esc(shelfName(p.shelf))),
+          `<button class="btn ghost sm" data-act="open" data-id="${p.id}">Open</button>`
+        )
+      )
+      .join('') +
+    lib
+      .map(i => {
+        const e = LIB[i];
+        return row(
+          bt({ name: e.n, brand: e.b, fam: e.f }, 0.7),
+          esc(e.n),
+          [esc(e.b), esc(e.c), e.s ? e.s + ' ml' : ''].filter(Boolean).join(' \u00b7 '),
+          `<button class="ic" data-act="lwish" data-i="${i}" aria-label="Add to wishlist">\u2661</button>${T ? `<button class="btn ghost sm" data-act="gtest" data-i="${i}">Test</button>` : ''}<button class="btn sm" data-act="ladd" data-i="${i}">Add</button>`
+        );
+      })
+      .join('') +
+    `<div class="gs-new">${mine.length || lib.length ? 'Not the one?' : 'Not in your cabinet or the library.'} Add \u201c${esc(q)}\u201d<div class="acts"><button class="btn ghost sm" data-act="gnew" data-to="wish">To the wishlist</button>${T ? '<button class="btn ghost sm" data-act="gnew" data-to="test">Test it</button>' : ''}<button class="btn sm" data-act="gnew" data-to="cab">To the cabinet</button></div></div>`
+  );
+}
+function updateGs() {
+  const r = $('#gres');
+  if (r) r.innerHTML = gsRows();
+}
 function updateLib() {
   const r = $('#libres');
   if (!r) return;
@@ -3369,7 +3441,21 @@ function vSet() {
  <input type="file" id="photoMany" accept="image/*" multiple>
  <div class="set-row"><div>Imported library<small>${fmt(IMPORTED.length)} entries. Your own entries are kept.</small></div><button class="btn ghost sm" data-act="clrImp">Clear imported</button></div>
  <div class="set-row"><div>Erase everything<small>Removes the collection, journal, photos and own entries</small></div><button class="btn danger sm" data-act="reset">Erase all</button></div></div>
- <div class="card"><h3>About</h3><div class="set-row"><div>Lux · Perfume Cabinet<small>A private cabinet for your fragrances, wears and tests</small></div></div><div class="set-row"><div>Made by<small>Ivan S. · Epicurus001 · Srbija / Norge</small></div></div></div>`;
+ <div class="card"><h3>About</h3><div class="set-row"><div>Lux · Perfume Cabinet<small>A private cabinet for your fragrances, wears and tests</small></div><button class="btn ghost sm" data-act="intro">How it works</button></div><div class="set-row"><div>Made by<small>Ivan S. · Epicurus001 · Srbija / Norge</small></div></div></div>`;
+}
+
+/* ================= first-run intro ================= */
+function openIntro() {
+  S.settings.introSeen = true;
+  save();
+  MODAL = 'intro';
+  const L = [
+    ['Collection', 'Your bottles on shelves, with the ml left in each. Tap a bottle to edit it or log a wear. The search at the top finds a fragrance in your cabinet, on the wishlist and in the library.'],
+    ['Wishlist', 'Bottles you want. Stars say how much: five stars means you plan to buy it. Add the price you saw and a target price, and Stats shows what the five-star bottles would cost.'],
+    ['Test', 'Spray a fragrance, add impressions as it dries down and rate it. Several tests of one fragrance give its average.'],
+    ['Journal and Stats', 'Every wear you log, your streak, what you wear most and what you spend.']
+  ];
+  openModal(`<button class="x" data-act="close" aria-label="Close">\u00d7</button><h2>Welcome to Lux</h2><p class="muted" style="margin:4px 0 16px">A private cabinet for your fragrances. Everything stays on this phone.</p>${L.map(([h, t]) => `<div class="set-row"><div>${h}<small>${t}</small></div></div>`).join('')}${S.demo ? '<p class="muted" style="margin-top:14px;font-size:13.5px">You are looking at sample data. Clear it from the note on the Collection when you are ready to add your own.</p>' : ''}<div class="foot"><button class="btn" data-act="close">Got it</button></div>`);
 }
 
 /* ================= render ================= */
@@ -3598,7 +3684,7 @@ function sheetHtml() {
  <div class="fg" style="margin-bottom:10px"><input id="f-name" data-in="sheet" placeholder="Fragrance name" autocomplete="off" value="${esc(d.name)}" aria-label="Name"><div class="sugg" id="sugg"></div></div>
  <div class="fg" style="margin:0"><input id="f-brand" data-in="sheet" placeholder="House" autocomplete="off" list="brand-list" value="${esc(d.brand)}" aria-label="House" style="font:500 16px var(--sans)"></div>${stats}</div></div>
  ${!sheetNew && wish ? similarHtml(d.brand, d.name, d.fam, d.id) : ''}<div class="g2"><div class="fg"><label for="f-shelf">Shelf</label><select id="f-shelf" data-in="sheet">${shOpts}</select></div>
- <div class="fg"><label for="f-type">Bottle or decant</label><select id="f-type" data-in="sheet"><option${d.type === 'Bottle' ? ' selected' : ''}>Bottle</option><option${d.type === 'Decant' ? ' selected' : ''}>Decant</option></select></div>
+ <div class="fg"><span class="lb">Bottle or decant</span><input type="hidden" id="f-type" value="${d.type === 'Decant' ? 'Decant' : 'Bottle'}"><div class="chips">${['Bottle', 'Decant'].map(t => `<button type="button" class="chip${(d.type === 'Decant' ? 'Decant' : 'Bottle') === t ? ' on' : ''}" data-act="ftype" data-v="${t}">${t}</button>`).join('')}</div></div>
  <div class="fg"><label for="f-fam">Scent family</label><input id="f-fam" data-in="sheet" list="fam-list" value="${esc(d.fam)}" placeholder="e.g. Woody"></div>
  <div class="fg"><label for="f-conc">Concentration</label><select id="f-conc" data-in="sheet">${concs.map(c => `<option${d.conc === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
  <div class="fg"><label for="f-max">Size (ml)</label><input id="f-max" type="number" min="1" step="0.5" data-in="sheet" value="${esc(d.maxMl)}"></div>
@@ -3618,7 +3704,7 @@ function sheetHtml() {
  ${wish ? `<div class="g2"><div class="fg"><label for="f-where">Where to buy</label><input id="f-where" data-in="sheet" placeholder="Shop, website or link" value="${esc(d.where || '')}"></div><div class="fg"><span class="lb">How much you want it</span>${starsHtml('prio', d.prio || 0)}</div></div>` : ''}
  <div class="fg"><span class="lb">Notes pyramid</span>${ui.pyrEdit ? pyrFormHtml(d._pyr || pyrOf(d.brand, d.name)) : (pyrHtml(pyrOf(d.brand, d.name)) || '<p class="muted" style="font-size:13.5px">No notes yet.</p>') + `<button type="button" class="btn ghost sm" data-act="pyrEdit" style="margin-top:8px">${pyrOf(d.brand, d.name) ? 'Edit notes' : 'Paste notes'}</button>`}</div>
  <div class="fg"><label for="f-notes">Your notes</label><textarea id="f-notes" data-in="sheet" placeholder="How it wears, when you reach for it">${esc(d.notes)}</textarea></div>
- <div class="fg"><span class="lb">Photo</span><div class="acts"><button type="button" class="btn ghost sm" data-act="photoPick">${PHOTOS[d.id] ? 'Change photo' : 'Add photo'}</button>${PHOTOS[d.id] ? '<button type="button" class="btn ghost sm" data-act="photoDel">Remove photo</button>' : ''}</div><input type="file" id="photoFile" accept="image/*"></div>
+ <div class="fg"><span class="lb">Photo</span><div class="acts"><button type="button" class="btn ghost sm" data-act="photoPick">${PHOTOS[d.id] ? 'Change photo' : 'Add photo'}</button>${PHOTOS[d.id] ? '<button type="button" class="btn ghost sm" data-act="photoDel">Remove photo</button>' : ''}${d.name ? `<a class="btn ghost sm" href="https://www.google.com/search?tbm=isch&q=${encodeURIComponent((d.brand + ' ' + d.name + ' perfume bottle').trim())}" target="_blank" rel="noopener">Find a picture online</a>` : ''}</div>${PHOTOS[d.id] ? '' : '<small class="hint">Best is a photo of your own bottle. Or find a picture online, save it to the phone (press and hold it, then Download) and pick it with Add photo. Pictures you save are for your own use.</small>'}<input type="file" id="photoFile" accept="image/*"></div>
  ${sheetNew && !known ? `<div class="set-row" style="border:0;padding:4px 0"><label for="f-savelib" style="margin:0">Also save to my library</label><input type="checkbox" id="f-savelib" checked style="width:20px;height:20px"></div>` : ''}
  <div class="foot">${sheetNew ? '' : '<button class="btn danger sp" data-act="sheetDel">Delete</button>'}${!sheetNew && !wish ? '<button class="btn ghost" data-act="sheetWear">Log a wear</button>' : ''}${!sheetNew && wish && window.__luxTest ? '<button class="btn ghost" data-act="wishTest">Test</button>' : ''}${!sheetNew && (wish || d.type === 'Decant') ? '<button class="btn ghost" data-act="calcSheet">Decant or bottle?</button>' : ''}${!sheetNew && wish ? '<button class="btn ghost" data-act="boughtDec">I bought a decant</button><button class="btn ghost" data-act="bought">I bought it</button>' : ''}<button class="btn" data-act="sheetSave">${sheetNew ? 'Add to cabinet' : 'Save changes'}</button></div>`;
 }
@@ -6563,8 +6649,19 @@ const ACT = {
     D.fam = e.f || D.fam;
     D.conc = e.c || D.conc;
     D.year = e.y || '';
-    D.maxMl = e.s || 100;
+    D.maxMl = D.type === 'Decant' ? +D.maxMl || 5 : e.s || 100;
     D.ml = D.maxMl;
+    paintSheet();
+  },
+  /* Bottle or decant: a new entry starts at 100 ml (or the library size) for a bottle, 5 ml for a decant */
+  ftype: a => {
+    readSheet();
+    D.type = a.dataset.v;
+    if (sheetNew) {
+      const e = LIB.find(x => x.k === norm(D.brand + ' ' + D.name));
+      D.maxMl = D.type === 'Decant' ? 5 : (e && e.s) || 100;
+      D.ml = D.maxMl;
+    }
     paintSheet();
   },
   wearOpen: a => openWear(a.dataset.id),
@@ -6657,6 +6754,21 @@ const ACT = {
     updateLib();
   },
   lnew: () => openEntry(),
+  intro: () => openIntro(),
+  gtest: a => {
+    const e = LIB[+a.dataset.i];
+    if (e && window.__luxTest) window.__luxTest.openStart({ name: e.n, brand: e.b, fam: e.f });
+  },
+  gnew: a => {
+    const q = (ui.gq || '').trim(),
+      to = a.dataset.to;
+    if (!q) return;
+    if (to === 'test') {
+      if (window.__luxTest) window.__luxTest.openStart({ name: q, brand: '' });
+      return;
+    }
+    openSheet(null, to === 'wish' ? { name: q, shelf: 'wish' } : { name: q });
+  },
   entrySave: () => saveEntry(),
   lwish: a => {
     const e = LIB[+a.dataset.i];
@@ -6690,6 +6802,7 @@ const ACT = {
     }
     save();
     updateLib();
+    updateGs();
     $('#railFoot').innerHTML = `${owned().length} in the cabinet<br>${fmt(LIB.length)} in the library`;
   },
   ladd: a => {
@@ -6861,6 +6974,11 @@ document.addEventListener('keydown', e => {
   }
 });
 const IN = {
+  gq: e => {
+    ui.gq = e.value;
+    clearTimeout(libT);
+    libT = setTimeout(updateGs, 120);
+  },
   lq: e => {
     ui.lq = e.value;
     ui.llim = 60;
@@ -6872,7 +6990,18 @@ const IN = {
     debounceLib();
   },
   sheet: e => {
+    const m0 = +D.maxMl || 0,
+      l0 = +D.ml || 0;
     readSheet();
+    /* the remaining ml follows the size: always for a new entry, and for a full bottle when edited */
+    if (e.id === 'f-max' && +D.maxMl > 0) {
+      const m = +D.maxMl;
+      if (sheetNew || l0 >= m0 - 0.05 || l0 > m) {
+        D.ml = sheetNew || l0 >= m0 - 0.05 ? m : Math.min(l0, m);
+        const f = $('#f-ml');
+        if (f) f.value = mlf(D.ml);
+      }
+    }
     if (e.id === 'f-name' && sheetNew) suggest();
     refreshBt();
   },
@@ -7055,6 +7184,7 @@ document.addEventListener('change', async e => {
   applyTheme();
   $('#fam-list').innerHTML = FAMLIST.map(f => `<option value="${f}">`).join('');
   render();
+  if (S.demo && !S.settings.introSeen && $('#modal').hidden) openIntro();
   takePending();
   syncReminders();
   document.addEventListener('visibilitychange', () => {
