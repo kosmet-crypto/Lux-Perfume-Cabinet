@@ -427,6 +427,9 @@
 .tt-res button{display:block;width:100%;text-align:left;padding:11px 14px;border-bottom:1px solid var(--line);font-size:14px}
 .tt-res button:hover{background:var(--glass);color:var(--gold2)}
 .tt-sec{margin:26px 0 12px;display:flex;justify-content:space-between;align-items:baseline}
+.tt-gph{flex:none;width:46px;height:72px}
+.tt-gph .bt{width:46px;height:72px;margin:0;filter:none}
+.tt-gph .gauge{display:none}
 `;
   document.head.appendChild(css);
 
@@ -909,8 +912,8 @@
     const gid = 'g' + g.key,
       ph = mine
         ? ''
-        : `<div class="acts" style="margin-top:12px"><button type="button" class="btn ghost sm" data-ta="gphoto" data-k="${esc(g.key)}">${PHOTOS[gid] ? 'Change photo' : 'Add photo'}</button>${PHOTOS[gid] ? `<button type="button" class="btn ghost sm" data-ta="gphotoBg" data-k="${esc(g.key)}">Remove white background</button>` : ''}<a class="btn ghost sm" href="${picUrl(g, 1)}" target="_blank" rel="noopener">Find a picture online</a><input type="file" id="gpFile" accept="image/*" hidden></div>`;
-    return `<button class="x" data-act="close" aria-label="Close">\u00d7</button><div style="display:flex;gap:14px;align-items:center">${PHOTOS[gid] && !mine ? `<div class="th" style="width:46px;height:72px;flex:none">${bt({ id: gid, name: g.name, brand: g.brand, fam: g.fam }, 0.7)}</div>` : ''}<div><h2>${esc(g.name)}</h2><div class="muted">${esc(g.brand)}</div></div></div>${ph}
+        : `<div class="fg" style="margin-top:18px"><span class="lb">Photo</span><div class="acts"><button type="button" class="btn ghost sm" data-ta="gphoto" data-k="${esc(g.key)}">${PHOTOS[gid] ? 'Change photo' : 'Add photo'}</button>${PHOTOS[gid] ? `<button type="button" class="btn ghost sm" data-ta="gphotoBg" data-k="${esc(g.key)}">Remove white background</button>` : ''}<a class="btn ghost sm" href="${picUrl(g, 1)}" target="_blank" rel="noopener">Find a picture online</a><input type="file" id="gpFile" accept="image/*" hidden></div></div>`;
+    return `<button class="x" data-act="close" aria-label="Close">\u00d7</button><div style="display:flex;gap:14px;align-items:center">${PHOTOS[gid] && !mine ? `<div class="tt-gph">${bt({ id: gid, name: g.name, brand: g.brand, fam: g.fam }, 0.7)}</div>` : ''}<div><h2>${esc(g.name)}</h2><div class="muted">${esc(g.brand)}</div></div></div>
   ${inCab && !notOwn(inCab.shelf) ? '' : `<div style="margin-top:14px">${similarHtml(g.brand, g.name, g.fam, g.pid)}</div>`}
   <div class="tt-score" style="text-align:left;font-size:46px;margin:14px 0 2px">${r1(g.avg)}<small style="display:inline;margin-left:8px">average over ${g.done.length} ${g.done.length === 1 ? 'test' : 'tests'}</small></div>
   ${radar(ax)}
@@ -919,7 +922,7 @@
   ${tags.length ? `<div style="margin:16px 0 4px"><span class="lb">What you smelled most</span><div class="chips">${tags.map(([t, c]) => `<span class="chip">${esc(t)} \u00b7 ${c}</span>`).join('')}</div></div>` : ''}
   <div style="margin:16px 0 4px"><span class="lb">Notes pyramid</span>${pyrHtml(pyrOf(g.brand, g.name)) || '<p class="muted" style="font-size:13.5px">No notes yet.</p>'}<button class="btn ghost sm" data-ta="gnotes" data-k="${esc(g.key)}" style="margin-top:8px">${pyrOf(g.brand, g.name) ? 'Edit notes' : 'Paste notes'}</button></div>
   <h3 style="margin:22px 0 2px">Tests</h3>${rows}
-  <div class="foot">${mine ? `<button class="btn ghost" data-ta="gopen" data-id="${mine.id}">${notOwn(mine.shelf) ? 'Open on the wishlist' : 'Open the bottle'}</button>` : ''}${inCab ? '<button class="btn ghost" data-ta="gsync" data-k="' + esc(g.key) + '">Update cabinet ratings</button>' : onWish ? '' : '<button class="btn ghost" data-ta="gwish" data-k="' + esc(g.key) + '">Add to wishlist</button>'}<button class="btn ghost" data-ta="gcalc" data-k="${esc(g.key)}">Decant or bottle?</button>${g.done.length && groups().filter(x => x.done.length).length > 1 ? `<button class="btn ghost" data-ta="cmp" data-k="${esc(g.key)}">Compare</button>` : ''}<button class="btn" data-ta="again" data-k="${esc(g.key)}">Test again</button></div>`;
+  ${ph}<div class="foot">${mine ? `<button class="btn ghost" data-ta="gopen" data-id="${mine.id}">${notOwn(mine.shelf) ? 'Open on the wishlist' : 'Open the bottle'}</button>` : ''}${inCab ? '<button class="btn ghost" data-ta="gsync" data-k="' + esc(g.key) + '">Update cabinet ratings</button>' : onWish ? '' : '<button class="btn ghost" data-ta="gwish" data-k="' + esc(g.key) + '">Add to wishlist</button>'}<button class="btn ghost" data-ta="gcalc" data-k="${esc(g.key)}">Decant or bottle?</button>${g.done.length && groups().filter(x => x.done.length).length > 1 ? `<button class="btn ghost" data-ta="cmp" data-k="${esc(g.key)}">Compare</button>` : ''}<button class="btn" data-ta="again" data-k="${esc(g.key)}">Test again</button></div>`;
   }
   const findGroup = k => groups().find(g => g.key === k);
   const reopenGroup = k => () => {
